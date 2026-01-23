@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gnre-automacao"
+version = "0.1.0"
+description = "Geração e envio de GNRE a partir de NF-e, com suporte a webservices e certificado PFX."
+authors = [{ name = "Heitor Forner", email = "heitor.forner@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["cryptography>=41.0.0"]
+license = "MIT"
+keywords = ["GNRE", "NFe", "ICMS", "WebService", "SOAP", "PFX", "Brasil"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://pypi.org/project/gnre-automacao/"
+
+[tool.setuptools]
+packages = ["gnre_automacao"]
+
