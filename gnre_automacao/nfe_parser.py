@@ -62,7 +62,10 @@ def parse_nfe_xml(path_xml: str) -> Dict[str, Optional[str]]:
     dhEmi = _text(ide, "dhEmi") if ide is not None else None
     dEmi = _text(ide, "dEmi") if ide is not None else None
     dtEmi = _parse_datetime(dhEmi) or _parse_datetime(dEmi)
+    end_dest = dest.find(NFE_NS + "enderDest") if dest is not None else None
     uf_dest = _text(dest, "UF") if dest is not None else None
+    if not uf_dest and end_dest is not None:
+        uf_dest = _text(end_dest, "UF")
     uf_emit = _text(emit, "UF") if emit is not None else None
     nNF = _text(ide, "nNF") if ide is not None else None
     serie = _text(ide, "serie") if ide is not None else None
@@ -84,7 +87,7 @@ def parse_nfe_xml(path_xml: str) -> Dict[str, Optional[str]]:
     dest_cnpj = _text(dest, "CNPJ") if dest is not None else None
     dest_cpf = _text(dest, "CPF") if dest is not None else None
     dest_nome = _text(dest, "xNome") if dest is not None else None
-    dest_cmun = _text(dest.find(NFE_NS + "enderDest") if dest is not None else None, "cMun")
+    dest_cmun = _text(end_dest if end_dest is not None else None, "cMun")
 
     icmstot = total.find(NFE_NS + "ICMSTot") if total is not None else None
     vST = _text(icmstot, "vST") if icmstot is not None else None
@@ -130,7 +133,10 @@ def parse_nfe_xml_bytes(xml_bytes: bytes) -> Dict[str, Optional[str]]:
     dhEmi = _text(ide, "dhEmi") if ide is not None else None
     dEmi = _text(ide, "dEmi") if ide is not None else None
     dtEmi = _parse_datetime(dhEmi) or _parse_datetime(dEmi)
+    end_dest = dest.find(NFE_NS + "enderDest") if dest is not None else None
     uf_dest = _text(dest, "UF") if dest is not None else None
+    if not uf_dest and end_dest is not None:
+        uf_dest = _text(end_dest, "UF")
     uf_emit = _text(emit, "UF") if emit is not None else None
     nNF = _text(ide, "nNF") if ide is not None else None
     serie = _text(ide, "serie") if ide is not None else None
@@ -150,7 +156,7 @@ def parse_nfe_xml_bytes(xml_bytes: bytes) -> Dict[str, Optional[str]]:
     dest_cnpj = _text(dest, "CNPJ") if dest is not None else None
     dest_cpf = _text(dest, "CPF") if dest is not None else None
     dest_nome = _text(dest, "xNome") if dest is not None else None
-    dest_cmun = _text(dest.find(NFE_NS + "enderDest") if dest is not None else None, "cMun")
+    dest_cmun = _text(end_dest if end_dest is not None else None, "cMun")
     icmstot = total.find(NFE_NS + "ICMSTot") if total is not None else None
     vST = _text(icmstot, "vST") if icmstot is not None else None
     vICMSUFDest = _text(icmstot, "vICMSUFDest") if icmstot is not None else None
