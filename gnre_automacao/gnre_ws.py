@@ -5,14 +5,33 @@ from urllib.parse import urlparse
 from typing import Optional, Dict, Tuple
 import tempfile
 import os
- 
+
 
 class GNREError(Exception):
-    def __init__(self, message: str, codigo: Optional[str] = None, descricao: Optional[str] = None, recibo: Optional[str] = None):
+    def __init__(self, message: str, codigo: Optional[str] = None, descricao: Optional[str] = None, recibo: Optional[str] = None, raw_xml: Optional[str] = None, details: Optional[Dict[str, any]] = None):
         super().__init__(message)
         self.codigo = codigo
         self.descricao = descricao
         self.recibo = recibo
+        self.raw_xml = raw_xml
+        self.details = details
+    def __str__(self) -> str:
+        base = self.args[0] if self.args else ""
+        parts = [base]
+        if self.codigo:
+            parts.append(f"codigo={self.codigo}")
+        if self.descricao:
+            parts.append(f"descricao={self.descricao}")
+        if self.recibo:
+            parts.append(f"recibo={self.recibo}")
+        if self.details:
+            parts.append(f"detalhes={self.details}")
+        if self.raw_xml:
+            s = self.raw_xml.strip()
+            if len(s) > 500:
+                s = s[:500] + "..."
+            parts.append(f"xml={s}")
+        return " | ".join(parts)
 
 def _dados_ns(service: str) -> str:
     return f"http://www.gnre.pe.gov.br/webservice/{service}"
@@ -217,7 +236,7 @@ def parse_result_status(soap_xml: str) -> Dict[str, Optional[str]]:
     codigo = sit.find(ns + "codigo").text.strip() if sit is not None and sit.find(ns + "codigo") is not None and sit.find(ns + "codigo").text else None
     descricao = sit.find(ns + "descricao").text.strip() if sit is not None and sit.find(ns + "descricao") is not None and sit.find(ns + "descricao").text else None
     if codigo and codigo not in {"402", "401"}:
-        raise GNREError("Processamento retornou erro", codigo=codigo, descricao=descricao, recibo=recibo)
+        raise GNREError("Processamento retornou erro", codigo=codigo, descricao=descricao, recibo=recibo, raw_xml=xml)
     return {"numeroRecibo": recibo, "codigo": codigo, "descricao": descricao}
 
 def extract_linha_digitavel_and_pdf(soap_xml: str) -> Dict[str, Optional[str]]:
@@ -225,7 +244,7 @@ def extract_linha_digitavel_and_pdf(soap_xml: str) -> Dict[str, Optional[str]]:
     sit = data.get("situacao") or {}
     codigo = (sit.get("codigo") or "").strip() if sit else ""
     if codigo != "402":
-        raise GNREError("Guia não processada com sucesso", codigo=codigo, descricao=(sit.get("descricao") if sit else None), recibo=data.get("numeroRecibo"))
+        raise GNREError("Guia não processada com sucesso", codigo=codigo, descricao=(sit.get("descricao") if sit else None), recibo=data.get("numeroRecibo"), raw_xml=extract_xml_from_soap(soap_xml), details=data)
     guia = (data.get("guias") or [{}])[0]
     return {
         "linhaDigitavel": guia.get("linhaDigitavel"),
