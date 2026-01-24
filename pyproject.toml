@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gnre-automacao"
-version = "0.1.0"
+version = "0.2.0"
 description = "Geração e envio de GNRE a partir de NF-e, com suporte a webservices e certificado PFX."
 authors = [{ name = "Heitor Forner", email = "heitor.forner@gmail.com" }]
 readme = "README.md"
