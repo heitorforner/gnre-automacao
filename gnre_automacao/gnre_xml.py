@@ -211,9 +211,6 @@ def build_lote_xml(
     v_total_item = (vprincipal + vFCP_total)
     valor_total = ET.SubElement(item, f"{{{GNRE_NS}}}valor", {"tipo": "21"})
     valor_total.text = f"{v_total_item:.2f}"
-    if vFCP_total > Decimal("0"):
-        valor_fcp = ET.SubElement(item, f"{{{GNRE_NS}}}valor", {"tipo": "27"})
-        valor_fcp.text = f"{vFCP_total:.2f}"
 
     if dados_nfe.get("destinatario_cnpj") or dados_nfe.get("destinatario_cpf"):
         dest = ET.SubElement(item, f"{{{GNRE_NS}}}contribuinteDestinatario")
