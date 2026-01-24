@@ -197,10 +197,12 @@ def parse_tresult_lote(soap_xml: str) -> Dict[str, any]:
             barras = guia.find(ns + "codigoBarras")
             qrcode = guia.find(ns + "qrcodePayload")
             nn = guia.find(ns + "nossoNumero")
+            sg = guia.find(ns + "situacaoGuia")
             item["linhaDigitavel"] = linha.text.strip() if linha is not None and linha.text else None
             item["codigoBarras"] = barras.text.strip() if barras is not None and barras.text else None
             item["qrcodePayload"] = qrcode.text.strip() if qrcode is not None and qrcode.text else None
             item["nossoNumero"] = nn.text.strip() if nn is not None and nn.text else None
+            item["situacaoGuia"] = sg.text.strip() if sg is not None and sg.text else None
             item["valor"] = None
             item["dataVencimento"] = None
             vg = guia.find(ns + "valorGNRE")
@@ -213,6 +215,18 @@ def parse_tresult_lote(soap_xml: str) -> Dict[str, any]:
                     dv = it.find(ns + "dataVencimento")
                     if dv is not None and dv.text:
                         item["dataVencimento"] = dv.text.strip()
+            pend = []
+            for cand in ["observacao", "motivo", "motivos", "motivoRejeicao", "motivosRejeicao", "erro", "erros", "mensagem", "mensagens", "pendencia", "pendencias"]:
+                for el in guia.findall(".//" + ns + cand):
+                    if el is not None and el.text:
+                        t = el.text.strip()
+                        if t:
+                            pend.append(t)
+            item["pendencias"] = pend if pend else None
+            try:
+                item["guiaXml"] = ET.tostring(guia, encoding="utf-8").decode("utf-8")
+            except Exception:
+                item["guiaXml"] = None
             out["guias"].append(item)
         pg = res.find(ns + "pdfGuias")
         if pg is not None and pg.text:
@@ -236,7 +250,8 @@ def parse_result_status(soap_xml: str) -> Dict[str, Optional[str]]:
     codigo = sit.find(ns + "codigo").text.strip() if sit is not None and sit.find(ns + "codigo") is not None and sit.find(ns + "codigo").text else None
     descricao = sit.find(ns + "descricao").text.strip() if sit is not None and sit.find(ns + "descricao") is not None and sit.find(ns + "descricao").text else None
     if codigo and codigo not in {"402", "401"}:
-        raise GNREError("Processamento retornou erro", codigo=codigo, descricao=descricao, recibo=recibo, raw_xml=xml)
+        details = parse_tresult_lote(soap_xml)
+        raise GNREError("Processamento retornou erro", codigo=codigo, descricao=descricao, recibo=recibo, raw_xml=xml, details=details)
     return {"numeroRecibo": recibo, "codigo": codigo, "descricao": descricao}
 
 def extract_linha_digitavel_and_pdf(soap_xml: str) -> Dict[str, Optional[str]]:
