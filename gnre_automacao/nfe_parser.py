@@ -62,6 +62,8 @@ def parse_nfe_xml(path_xml: str) -> Dict[str, Optional[str]]:
     dhEmi = _text(ide, "dhEmi") if ide is not None else None
     dEmi = _text(ide, "dEmi") if ide is not None else None
     dtEmi = _parse_datetime(dhEmi) or _parse_datetime(dEmi)
+    idDest = _text(ide, "idDest") if ide is not None else None
+    indFinal = _text(ide, "indFinal") if ide is not None else None
     end_dest = dest.find(NFE_NS + "enderDest") if dest is not None else None
     uf_dest = _text(dest, "UF") if dest is not None else None
     if not uf_dest and end_dest is not None:
@@ -88,6 +90,7 @@ def parse_nfe_xml(path_xml: str) -> Dict[str, Optional[str]]:
     dest_cpf = _text(dest, "CPF") if dest is not None else None
     dest_nome = _text(dest, "xNome") if dest is not None else None
     dest_cmun = _text(end_dest if end_dest is not None else None, "cMun")
+    indIEDest = _text(dest, "indIEDest") if dest is not None else None
 
     icmstot = total.find(NFE_NS + "ICMSTot") if total is not None else None
     vST = _text(icmstot, "vST") if icmstot is not None else None
@@ -100,6 +103,9 @@ def parse_nfe_xml(path_xml: str) -> Dict[str, Optional[str]]:
         "data_emissao": dtEmi.isoformat() if dtEmi else None,
         "uf_emitente": uf_emit,
         "uf_destinatario": uf_dest,
+        "id_dest": idDest,
+        "ind_final": indFinal,
+        "ind_ie_dest": indIEDest,
         "numero_nf": nNF,
         "serie_nf": serie,
         "emitente_cnpj": emit_cnpj,
@@ -133,6 +139,8 @@ def parse_nfe_xml_bytes(xml_bytes: bytes) -> Dict[str, Optional[str]]:
     dhEmi = _text(ide, "dhEmi") if ide is not None else None
     dEmi = _text(ide, "dEmi") if ide is not None else None
     dtEmi = _parse_datetime(dhEmi) or _parse_datetime(dEmi)
+    idDest = _text(ide, "idDest") if ide is not None else None
+    indFinal = _text(ide, "indFinal") if ide is not None else None
     end_dest = dest.find(NFE_NS + "enderDest") if dest is not None else None
     uf_dest = _text(dest, "UF") if dest is not None else None
     if not uf_dest and end_dest is not None:
@@ -157,6 +165,7 @@ def parse_nfe_xml_bytes(xml_bytes: bytes) -> Dict[str, Optional[str]]:
     dest_cpf = _text(dest, "CPF") if dest is not None else None
     dest_nome = _text(dest, "xNome") if dest is not None else None
     dest_cmun = _text(end_dest if end_dest is not None else None, "cMun")
+    indIEDest = _text(dest, "indIEDest") if dest is not None else None
     icmstot = total.find(NFE_NS + "ICMSTot") if total is not None else None
     vST = _text(icmstot, "vST") if icmstot is not None else None
     vICMSUFDest = _text(icmstot, "vICMSUFDest") if icmstot is not None else None
@@ -167,6 +176,9 @@ def parse_nfe_xml_bytes(xml_bytes: bytes) -> Dict[str, Optional[str]]:
         "data_emissao": dtEmi.isoformat() if dtEmi else None,
         "uf_emitente": uf_emit,
         "uf_destinatario": uf_dest,
+        "id_dest": idDest,
+        "ind_final": indFinal,
+        "ind_ie_dest": indIEDest,
         "numero_nf": nNF,
         "serie_nf": serie,
         "emitente_cnpj": emit_cnpj,

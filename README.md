@@ -19,13 +19,14 @@ pip install gnre-automacao
 
 ## Uso rápido
 
-Exemplo de fluxo completo: gerar XML do lote, enviar, consultar resultado e salvar o PDF.
+Exemplo de fluxo completo automático: consulta as regras da UF. Quando houver mais de uma cobrança (por exemplo DIFAL e FCP), envia guias separadas e retorna uma lista de recibos identificados.
 
 ```python
 from pathlib import Path
 import base64
+from decimal import Decimal
 from gnre_automacao import (
-    parse_nfe_xml_bytes, evaluate_gnre_need, build_lote_xml, build_soap_envelope_tlote,
+    parse_nfe_xml_bytes, evaluate_gnre_need, generate_gnre_receipts, build_soap_envelope_tlote,
     post_soap, get_endpoints, parse_tr_ret_lote,
     build_consulta_resultado_xml, build_soap_envelope,
     parse_result_status, extract_linha_digitavel_and_pdf, GNREError
@@ -43,45 +44,151 @@ if need.get("necessario") == "N":
 elif need.get("necessario") == "M":
     print("GNRE manual necessária")
 else:
-    venc = (datetime.now().date() + timedelta(days=7)).isoformat()
-    xml_lote = build_lote_xml(
-        dados,
-        uf_favorecida=dados.get("uf_destinatario"),
-        receita=None,
-        data_vencimento=venc,
-        data_pagamento=venc,
-    )
-    envelope = build_soap_envelope_tlote(xml_lote)
-    resp_recepcao = post_soap(get_endpoints("producao")["recepcao_lote"], envelope, pfx_bytes=pfx_bytes, pfx_password=pfx_password)
-    recibo = parse_tr_ret_lote(resp_recepcao)
 
-    cons_xml = build_consulta_resultado_xml("1", recibo, incluir_pdf=True, incluir_arquivo_pagamento=True)
-    env_consulta = build_soap_envelope("GnreResultadoLote", cons_xml)
-    resp_resultado = post_soap(get_endpoints("producao")["resultado_lote"], env_consulta, pfx_bytes=pfx_bytes, pfx_password=pfx_password)
+    AMBIENTE = "1"
+    recibos = []
+    for guia in (need.get("guias") or []):
+        r = emit_gnre_receipt(
+            dados,
+            AMBIENTE,
+            guia["receita"],
+            venc,
+            venc,
+            pfx_bytes,
+            pfx_password,
+        )
+        print("emit:", guia["receita"], r.get("recibo") or r.get("error"))
+        recibos.append({"tipo": "fcp" if guia["receita"] == "100129" else "principal", "recibo": r.get("recibo")})
 
-    status = parse_result_status(resp_resultado)
-    print(status["numeroRecibo"], status["codigo"], status["descricao"])
+    for r in recibos:
+        if not r.get("recibo"):
+            continue
+        result = consult_gnre_receipt(AMBIENTE, r["recibo"], pfx_bytes, pfx_password, incluir_pdf=True, incluir_arquivo_pagamento=True)
+        status = result.get("status") or {}
+        print(r["tipo"], status.get("numeroRecibo"), status.get("codigo"), status.get("descricao"))
+        print(r["tipo"], "Linha digitável:", result.get("linhaDigitavel"))
+        print(r["tipo"], "Valor:", result.get("valor"))
+        print(r["tipo"], "Vencimento:", result.get("dataVencimento"))
+        if result.get("pdfBase64"):
+            Path(f"gnre_guia_{r['tipo']}.pdf").write_bytes(base64.b64decode(result["pdfBase64"]))
 
-    # se a guia ainda estiver sendo processada, ou houver algum problema, uma exceção é lançada
-    # try/except pode ser usado para consultar se a guia já foi processada a cada x tempo
-    try:
-        out = extract_linha_digitavel_and_pdf(resp_resultado)
-        print("Linha digitável:", out.get("linhaDigitavel"))
-        print("Valor:", out.get("valor"))
-        print("Vencimento:", out.get("dataVencimento"))
-        pdf_b64 = out.get("pdfBase64")
-        if pdf_b64:
-            Path("gnre_guia.pdf").write_bytes(base64.b64decode(pdf_b64))
-    except GNREError:
-        # tentar de novo em alguns segundos
-        # tentativas terminadas:
-        raise
+## Retornos e cenários
+
+### evaluate_gnre_need
+- Sucesso (quando há guias necessárias):
+
+```json
+{
+  "receita": "100102",
+  "valor_principal": "27.62",
+  "valor_fcp": "1.92",
+  "valor_total_item": "29.54",
+  "necessario": "S",
+  "guias": [
+    { "receita": "100102", "valor": "27.62" },
+    { "receita": "100129", "valor": "1.92" }
+  ]
+}
+```
+- Sem necessidade:
+
+```json
+{
+  "receita": null,
+  "valor_principal": "0.00",
+  "valor_fcp": "0.00",
+  "valor_total_item": "0.00",
+  "necessario": "N",
+  "guias": []
+}
+```
+- Necessário mas manual (SP/ES com operação interestadual):
+
+```json
+{
+  "receita": null,
+  "valor_principal": "27.62",
+  "valor_fcp": "1.92",
+  "valor_total_item": "29.54",
+  "necessario": "M",
+  "guias": null
+}
+```
+
+### emit_gnre_receipt
+- Sucesso:
+
+```json
+{ "receita": "100129", "recibo": "26000045455789" }
+```
+- Falha de recepção (ex.: conteúdo inválido):
+
+```json
+{
+  "receita": "100129",
+  "recibo": null,
+  "error": "Falha ao obter recibo de recepção",
+  "recepcao_xml": "<soapenv:Envelope>...</soapenv:Envelope>"
+}
+```
+- Exceção de validação (GNREError) com detalhes:
+
+```json
+{
+  "receita": "100129",
+  "error": "ufFavorecida é obrigatória",
+  "details": { "uf_favorecida": "" }
+}
+```
+
+### consult_gnre_receipt
+- Sucesso (processado):
+
+```json
+{
+  "recibo": "26000045455789",
+  "status": { "numeroRecibo": "26000045455789", "codigo": "402", "descricao": "Lote Processado com sucesso" },
+  "linhaDigitavel": "8587...4007",
+  "valor": "1.92",
+  "dataVencimento": "2026-02-02",
+  "pdfBase64": "JVBERi0xLjQKJeLjz9MK..."
+}
+```
+- Em processamento:
+
+```json
+{
+  "recibo": "26000045455789",
+  "status_error": "Guia não processada com sucesso | codigo=401 | descricao=Lote em Processamento | recibo=26000045455789 | ...",
+  "resultado": {
+    "numeroRecibo": "26000045455789",
+    "situacao": { "codigo": "401", "descricao": "Lote em Processamento" },
+    "guias": [],
+    "pdfGuias": null,
+    "arquivoPagamento": null
+  }
+}
+```
+- Processado com pendências (ex.: requer detalhamento):
+
+```json
+{
+  "recibo": "260000...",
+  "status_error": "Guia não processada com sucesso | codigo=403 | descricao=Lote Processado com pendências | ...",
+  "resultado": {
+    "numeroRecibo": "260000...",
+    "situacao": { "codigo": "403", "descricao": "Lote Processado com pendências" },
+    "guias": [ /* motivos e detalhes da pendência */ ]
+  }
+}
+```
 ```
 
 ## Principais funções
 - `parse_nfe_xml_bytes(bytes)` — extrai dados relevantes da NF-e
 - `evaluate_gnre_need(dados, receita=None)` — avalia necessidade de GNRE; quando a UF do emitente for diferente da UF do destinatário e a UF de destino for SP ou ES, retorna `necessario = "M"` (manual) somente se houver valor > 0; caso valor seja zero, retorna `necessario = "N"`
-- `build_lote_xml(...)` — monta o XML do lote GNRE
+- `build_lote_xml_with_config(...)` — monta o XML do lote GNRE consultando regras da UF e aplicando campos extras automaticamente
+- `build_lote_xml(...)` — versão manual para montar o XML do lote GNRE
 - `build_soap_envelope_tlote(xml)` — envelope SOAP para recepção de lote
 - `post_soap(url, envelope_xml, ...)` — envia requisição SOAP com certificado
 - `parse_tr_ret_lote(soap_xml)` — extrai número de recibo do retorno da recepção

@@ -1,0 +1,89 @@
+{
+  "AC": [
+    { "receita": "100102", "codigo": "120", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100099", "codigo": "76", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ],
+  "AL": [
+    { "receita": "100099", "codigo": "90", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100102", "codigo": "90", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100129", "codigo": "90", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ],
+  "AM": [
+    { "receita": "100102", "codigo": "96", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100099", "codigo": "12", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100129", "codigo": "12", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ],
+  "AP": [
+    { "receita": "100102", "codigo": "47", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100099", "codigo": "47", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ],
+  "BA": [],
+  "CE": [],
+  "DF": [],
+  "ES": [],
+  "GO": [
+    { "receita": "100099", "codigo": "102", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100102", "codigo": "102", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100129", "codigo": "102", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ],
+  "MA": [
+    { "receita": "100102", "codigo": "94", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100099", "codigo": "94", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100129", "codigo": "94", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ],
+  "MG": [],
+  "MS": [
+    { "receita": "100099", "codigo": "27", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100102", "codigo": "88", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100129", "codigo": "88", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ],
+  "MT": [],
+  "PA": [],
+  "PB": [
+    { "receita": "100099", "codigo": "30", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100102", "codigo": "99", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100129", "codigo": "30", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ],
+  "PE": [],
+  "PI": [],
+  "PR": [
+    { "receita": "100102", "codigo": "107", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ],
+  "RJ": [
+    { "receita": "100099", "codigo": "117", "titulo": "Data de Emissão", "tipo": "D", "obrigatorio": "Sim" },
+    { "receita": "100102", "codigo": "117", "titulo": "Data de Emissão", "tipo": "D", "obrigatorio": "Sim" }
+  ],
+  "RN": [
+    { "receita": "100099", "codigo": "97", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100129", "codigo": "97", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ],
+  "RO": [
+    { "receita": "100099", "codigo": "83", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100102", "codigo": "83", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100129", "codigo": "83", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ],
+  "RR": [
+    { "receita": "100099", "codigo": "36", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100102", "codigo": "36", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ],
+  "RS": [
+    { "receita": "100102", "codigo": "74", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100099", "codigo": "74", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100129", "codigo": "74", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ],
+  "SC": [
+    { "receita": "100099", "codigo": "84", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100102", "codigo": "84", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ],
+  "SE": [
+    { "receita": "100099", "codigo": "77", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100102", "codigo": "77", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100129", "codigo": "77", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ],
+  "SP": [],
+  "TO": [
+    { "receita": "100099", "codigo": "80", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100102", "codigo": "80", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" },
+    { "receita": "100129", "codigo": "80", "titulo": "Chave de Acesso da NFe", "tipo": "T", "obrigatorio": "Sim" }
+  ]
+}
