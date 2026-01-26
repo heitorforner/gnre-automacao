@@ -97,6 +97,12 @@ def parse_nfe_xml(path_xml: str) -> Dict[str, Optional[str]]:
     vICMSUFDest = _text(icmstot, "vICMSUFDest") if icmstot is not None else None
     vFCPST = _text(icmstot, "vFCPST") if icmstot is not None else None
     vFCPUFDest = _text(icmstot, "vFCPUFDest") if icmstot is not None else None
+    vICMS = _text(icmstot, "vICMS") if icmstot is not None else None
+    vIPI = _text(icmstot, "vIPI") if icmstot is not None else None
+    vPIS = _text(icmstot, "vPIS") if icmstot is not None else None
+    vCOFINS = _text(icmstot, "vCOFINS") if icmstot is not None else None
+    vIBS = _text(icmstot, "vIBS") if icmstot is not None else None
+    vCBS = _text(icmstot, "vCBS") if icmstot is not None else None
 
     return {
         "chave_nfe": chNFe,
@@ -124,6 +130,13 @@ def parse_nfe_xml(path_xml: str) -> Dict[str, Optional[str]]:
         "valor_vICMSUFDest": vICMSUFDest,
         "valor_vFCPST": vFCPST,
         "valor_vFCPUFDest": vFCPUFDest,
+        "valor_vICMS": vICMS,
+        "valor_vIPI": vIPI,
+        "valor_vPIS": vPIS,
+        "valor_vCOFINS": vCOFINS,
+        "valor_vIBS": vIBS,
+        "valor_vCBS": vCBS,
+        "valor_vTotTrib": _text(icmstot, "vTotTrib") if icmstot is not None else None,
     }
 
 def parse_nfe_xml_bytes(xml_bytes: bytes) -> Dict[str, Optional[str]]:
@@ -171,6 +184,12 @@ def parse_nfe_xml_bytes(xml_bytes: bytes) -> Dict[str, Optional[str]]:
     vICMSUFDest = _text(icmstot, "vICMSUFDest") if icmstot is not None else None
     vFCPST = _text(icmstot, "vFCPST") if icmstot is not None else None
     vFCPUFDest = _text(icmstot, "vFCPUFDest") if icmstot is not None else None
+    vICMS = _text(icmstot, "vICMS") if icmstot is not None else None
+    vIPI = _text(icmstot, "vIPI") if icmstot is not None else None
+    vPIS = _text(icmstot, "vPIS") if icmstot is not None else None
+    vCOFINS = _text(icmstot, "vCOFINS") if icmstot is not None else None
+    vIBS = _text(icmstot, "vIBS") if icmstot is not None else None
+    vCBS = _text(icmstot, "vCBS") if icmstot is not None else None
     return {
         "chave_nfe": chNFe,
         "data_emissao": dtEmi.isoformat() if dtEmi else None,
@@ -197,4 +216,11 @@ def parse_nfe_xml_bytes(xml_bytes: bytes) -> Dict[str, Optional[str]]:
         "valor_vICMSUFDest": vICMSUFDest,
         "valor_vFCPST": vFCPST,
         "valor_vFCPUFDest": vFCPUFDest,
+        "valor_vICMS": vICMS,
+        "valor_vIPI": vIPI,
+        "valor_vPIS": vPIS,
+        "valor_vCOFINS": vCOFINS,
+        "valor_vIBS": vIBS,
+        "valor_vCBS": vCBS,
+        "valor_vTotTrib": _text(icmstot, "vTotTrib") if icmstot is not None else None,
     }

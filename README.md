@@ -88,6 +88,18 @@ else:
     { "receita": "100102", "valor": "27.62" },
     { "receita": "100129", "valor": "1.92" }
   ]
+  "taxes": {
+    "icms": "0.00",
+    "icms_difal": "27.62",
+    "icms_st": "0.00",
+    "fcp": "1.92",
+    "ipi": "0.00",
+    "pis": "0.00",
+    "cofins": "0.00",
+    "ibs": "0.00",
+    "cbs": "0.00",
+    "total_taxes_estimation": "29.54"
+  }
 }
 ```
 - Sem necessidade:
@@ -99,7 +111,19 @@ else:
   "valor_fcp": "0.00",
   "valor_total_item": "0.00",
   "necessario": "N",
-  "guias": []
+  "guias": [],
+  "taxes": {
+    "icms": "0.00",
+    "icms_difal": "0.00",
+    "icms_st": "0.00",
+    "fcp": "0.00",
+    "ipi": "0.00",
+    "pis": "0.00",
+    "cofins": "0.00",
+    "ibs": "0.00",
+    "cbs": "0.00",
+    "total_taxes_estimation": "0.00"
+  }
 }
 ```
 - Necessário mas manual (SP/ES com operação interestadual):
@@ -111,7 +135,22 @@ else:
   "valor_fcp": "1.92",
   "valor_total_item": "29.54",
   "necessario": "M",
-  "guias": null
+  "guias": [
+    { "receita": "100102", "valor": "27.62" },
+    { "receita": "100129", "valor": "1.92" }
+  ],
+  "taxes": {
+    "icms": "0.00",
+    "icms_difal": "27.62",
+    "icms_st": "0.00",
+    "fcp": "1.92",
+    "ipi": "0.00",
+    "pis": "0.00",
+    "cofins": "0.00",
+    "ibs": "0.00",
+    "cbs": "0.00",
+    "total_taxes_estimation": "29.54"
+  }
 }
 ```
 

@@ -86,6 +86,13 @@ def evaluate_gnre_need(
     vICMSUF_nfe = _dec(dados_nfe.get("valor_vICMSUFDest"))
     vFCPUF_nfe = _dec(dados_nfe.get("valor_vFCPUFDest"))
     vFCPST_nfe = _dec(dados_nfe.get("valor_vFCPST"))
+    vICMS_int = _dec(dados_nfe.get("valor_vICMS"))
+    vIPI = _dec(dados_nfe.get("valor_vIPI"))
+    vPIS = _dec(dados_nfe.get("valor_vPIS"))
+    vCOFINS = _dec(dados_nfe.get("valor_vCOFINS"))
+    vIBS = _dec(dados_nfe.get("valor_vIBS"))
+    vCBS = _dec(dados_nfe.get("valor_vCBS"))
+    vTotTrib = _dec(dados_nfe.get("valor_vTotTrib"))
     r = receita or ""
     is_inter = (id_dest == "2")
     is_final = (ind_final == "1")
@@ -122,7 +129,19 @@ def evaluate_gnre_need(
         "valor_fcp": f"{vFCP_total:.2f}",
         "valor_total_item": f"{v_total_item:.2f}",
         "necessario": "M" if manual else ("S" if bool(guides) else "N"),
-        "guias": guides if not manual else None,
+        "guias": guides,
+        "taxes": {
+            "icms": f"{vICMS_int:.2f}",
+            "icms_difal": f"{vICMSUF_nfe:.2f}",
+            "icms_st": f"{vST_nfe:.2f}",
+            "fcp": f"{(vFCPUF_nfe + vFCPST_nfe):.2f}",
+            "ipi": f"{vIPI:.2f}",
+            "pis": f"{vPIS:.2f}",
+            "cofins": f"{vCOFINS:.2f}",
+            "ibs": f"{vIBS:.2f}",
+            "cbs": f"{vCBS:.2f}",
+            "total_taxes_estimation": f"{(vTotTrib if vTotTrib > Decimal('0') else (vICMS_int + vICMSUF_nfe + vST_nfe + vFCPUF_nfe + vFCPST_nfe + vIPI + vPIS + vCOFINS + vIBS + vCBS)):.2f}",
+        },
     }
 def build_lote_xml(
     dados_nfe: Dict[str, Optional[str]],
