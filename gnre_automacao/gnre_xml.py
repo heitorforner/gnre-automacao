@@ -298,22 +298,21 @@ def build_lote_xml(
     if data_pagamento:
         dp = ET.SubElement(guia, f"{{{GNRE_NS}}}dataPagamento")
         dp.text = data_pagamento
-    if incluir_campo_107:
-        extras_map = _load_additional_fields()
-        extras = []
-        for e in extras_map.get(uf, []):
-            if e.get("receita") == receita:
-                v = _extra_value(e.get("titulo") or "", dados_nfe)
-                if v:
-                    extras.append({"codigo": e.get("codigo"), "valor": v})
-        if extras:
-            campos = ET.SubElement(item, f"{{{GNRE_NS}}}camposExtras")
-            for ex in extras:
-                ce = ET.SubElement(campos, f"{{{GNRE_NS}}}campoExtra")
-                c = ET.SubElement(ce, f"{{{GNRE_NS}}}codigo")
-                c.text = str(ex["codigo"])
-                vv = ET.SubElement(ce, f"{{{GNRE_NS}}}valor")
-                vv.text = ex["valor"]
+    extras_map = _load_additional_fields()
+    extras = []
+    for e in extras_map.get(uf, []):
+        if e.get("receita") == receita:
+            v = _extra_value(e.get("titulo") or "", dados_nfe)
+            if v:
+                extras.append({"codigo": e.get("codigo"), "valor": v})
+    if extras:
+        campos = ET.SubElement(item, f"{{{GNRE_NS}}}camposExtras")
+        for ex in extras:
+            ce = ET.SubElement(campos, f"{{{GNRE_NS}}}campoExtra")
+            c = ET.SubElement(ce, f"{{{GNRE_NS}}}codigo")
+            c.text = str(ex["codigo"])
+            vv = ET.SubElement(ce, f"{{{GNRE_NS}}}valor")
+            vv.text = ex["valor"]
 
     xml_str = ET.tostring(lote, encoding="utf-8", xml_declaration=False)
     return xml_str.decode("utf-8")
