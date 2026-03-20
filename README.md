@@ -258,9 +258,17 @@ Você pode informar `pfx_bytes` e `pfx_password` diretamente para as chamadas de
 ## Licença
 MIT. Veja o arquivo `LICENSE`.
 
+## Dicas de depuração
+
+Para inspecionar como o XML de um lote deve ser estruturado para uma determinada UF e receita, use o gerador oficial do portal GNRE:
+
+https://www.gnre.pe.gov.br:444/gnre/v/lote/gerar#
+
+Preencha os campos manualmente, gere a guia e inspecione o XML resultante. Isso é útil para comparar com o XML produzido pela biblioteca e identificar divergências de estrutura (campos obrigatórios, tipos de documento, presença ou ausência de `<referencia>`, etc.).
+
 ## Avisos
 - Não comite senhas ou certificados no repositório.
 - Os serviços GNRE podem ter regras específicas por UF e receita; sempre valide no ambiente de teste antes de ir para produção.
 - Não funciona para as UFs SP e ES via webservice desta biblioteca.
-- Para as UFs PE, RJ, RO e SC com múltiplos tributos, `emit_gnre_receipt` envia uma única guia com todas as receitas combinadas. Chame-a **uma única vez** (não em loop por guia), pois internamente já inclui todos os tributos detectados.
+- Para as UFs RJ e RO com múltiplos tributos, `emit_gnre_receipt` envia uma única guia com todas as receitas combinadas. Chame-a **uma única vez** (não em loop por guia), pois internamente já inclui todos os tributos detectados.
 - É obrigatório cadastrar o CNPJ no portal GNRE antes de utilizar os serviços: https://www.gnre.pe.gov.br:444/gnre/portal/GNRE_Principal.jsp

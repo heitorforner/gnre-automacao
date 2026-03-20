@@ -9,7 +9,7 @@ from .gnre_ws import GNREError
 from decimal import Decimal
 
 GNRE_NS = "http://www.gnre.pe.gov.br"
-MULTIPLAS_RECEITAS_UFS: frozenset = frozenset({"PE", "RJ", "RO", "SC"})
+MULTIPLAS_RECEITAS_UFS: frozenset = frozenset({"RJ", "RO"})
 
 def _digits(s: Optional[str]) -> str:
     return "".join(ch for ch in (s or "") if ch.isdigit())
@@ -155,6 +155,8 @@ def _build_item(
     detalhamento_receita: Optional[str] = None,
     produto: Optional[str] = None,
     valor_fcp: Optional[Decimal] = None,
+    incluir_referencia: bool = True,
+    incluir_valor_total: bool = True,
 ) -> None:
     chave = (dados_nfe.get("chave_nfe") or "").strip()
     mes = dtven[5:7]
@@ -169,18 +171,21 @@ def _build_item(
         prod = ET.SubElement(item, f"{{{GNRE_NS}}}produto")
         prod.text = produto
     doc_tipo = (doc_origem_tipo or "22").strip()
-    doc = ET.SubElement(item, f"{{{GNRE_NS}}}documentoOrigem", {"tipo": doc_tipo})
-    doc.text = _digits(chave) if doc_tipo in {"22", "24"} else _digits(dados_nfe.get("numero_nf") or chave)
-    ref = ET.SubElement(item, f"{{{GNRE_NS}}}referencia")
-    ET.SubElement(ref, f"{{{GNRE_NS}}}periodo").text = "0"
-    ET.SubElement(ref, f"{{{GNRE_NS}}}mes").text = mes
-    ET.SubElement(ref, f"{{{GNRE_NS}}}ano").text = ano
+    if doc_tipo:
+        doc = ET.SubElement(item, f"{{{GNRE_NS}}}documentoOrigem", {"tipo": doc_tipo})
+        doc.text = _digits(chave) if doc_tipo in {"22", "24"} else _digits(dados_nfe.get("numero_nf") or chave)
+    if incluir_referencia:
+        ref = ET.SubElement(item, f"{{{GNRE_NS}}}referencia")
+        ET.SubElement(ref, f"{{{GNRE_NS}}}periodo").text = "0"
+        ET.SubElement(ref, f"{{{GNRE_NS}}}mes").text = mes
+        ET.SubElement(ref, f"{{{GNRE_NS}}}ano").text = ano
     ET.SubElement(item, f"{{{GNRE_NS}}}dataVencimento").text = dtven
     ET.SubElement(item, f"{{{GNRE_NS}}}valor", {"tipo": "11"}).text = f"{vprincipal:.2f}"
     if valor_fcp and valor_fcp > Decimal("0"):
         ET.SubElement(item, f"{{{GNRE_NS}}}valor", {"tipo": "12"}).text = f"{valor_fcp:.2f}"
-    vtotal = vprincipal + (valor_fcp or Decimal("0"))
-    ET.SubElement(item, f"{{{GNRE_NS}}}valor", {"tipo": "21"}).text = f"{vtotal:.2f}"
+    if incluir_valor_total:
+        vtotal = vprincipal + (valor_fcp or Decimal("0"))
+        ET.SubElement(item, f"{{{GNRE_NS}}}valor", {"tipo": "21"}).text = f"{vtotal:.2f}"
     if dados_nfe.get("destinatario_cnpj") or dados_nfe.get("destinatario_cpf"):
         dest = ET.SubElement(item, f"{{{GNRE_NS}}}contribuinteDestinatario")
         dest_id = ET.SubElement(dest, f"{{{GNRE_NS}}}identificacao")
@@ -339,7 +344,7 @@ def build_lote_xml_multiplas_receitas(
     guias: list,
     data_vencimento: str,
     data_pagamento: str,
-    doc_origem_tipo: str = "22",
+    doc_origem_tipo: str = "24",
     razao_social_emitente: Optional[str] = None,
 ) -> str:
     """Constrói um TLote_GNRE com um único TDadosGNRE contendo múltiplos <item>
@@ -366,7 +371,7 @@ def build_lote_xml_multiplas_receitas(
     guia = ET.SubElement(guias_el, f"{{{GNRE_NS}}}TDadosGNRE", {"versao": "2.00"})
 
     ET.SubElement(guia, f"{{{GNRE_NS}}}ufFavorecida").text = uf
-    ET.SubElement(guia, f"{{{GNRE_NS}}}tipoGnre").text = "0"
+    ET.SubElement(guia, f"{{{GNRE_NS}}}tipoGnre").text = "2"
 
     contrib_emit = ET.SubElement(guia, f"{{{GNRE_NS}}}contribuinteEmitente")
     identificacao = ET.SubElement(contrib_emit, f"{{{GNRE_NS}}}identificacao")
@@ -419,6 +424,8 @@ def build_lote_xml_multiplas_receitas(
             doc_origem_tipo=guia_doc_tipo,
             detalhamento_receita=auto_det,
             valor_fcp=vfcp,
+            incluir_referencia=False,
+            incluir_valor_total=False,
         )
         valor_total_gnre += vprincipal + (vfcp or Decimal("0"))
 
@@ -706,13 +713,8 @@ def emit_gnre_receipt(
             principal_guias[0] = {**principal_guias[0], "valor_fcp": fcp_guia["valor"]}
         guias_para_envio = principal_guias or guias
         use_multiplas = len(guias_para_envio) > 1
-        # Resolver doc_tipo correto por receita consultando a configuração da UF
-        config = fetch_config_uf(ambiente, uf, pfx_bytes=pfx_bytes, pfx_password=pfx_password, certfile=certfile, keyfile=keyfile)
-        recs_config = config.get("receitas") or {}
-        guias_para_envio = [
-            {**g, "doc_tipo": _choose_doc_tipo(recs_config.get(g.get("receita")) or {}) or "22"}
-            for g in guias_para_envio
-        ]
+        # No formato múltiplas receitas, documentoOrigem usa tipo="24"
+        guias_para_envio = [{**g, "doc_tipo": "24"} for g in guias_para_envio]
 
     item: Dict[str, Any] = {"receita": receita, "recibo": None, "multiplas_receitas": use_multiplas}
     try:
