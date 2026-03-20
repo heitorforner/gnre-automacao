@@ -75,7 +75,7 @@ def _load_detalhamento_map() -> Dict[str, Any]:
     return _UF_DETALHAMENTO
 def evaluate_gnre_need(
     dados_nfe: Dict[str, Optional[str]],
-    receita: Optional[str],
+    receita: Optional[str] = None,
     valor_principal: Optional[str] = None,
 ) -> Dict[str, Optional[str]]:
     uf_dest = (dados_nfe.get("uf_destinatario") or "").strip().upper()
@@ -154,6 +154,7 @@ def _build_item(
     doc_origem_tipo: str = "22",
     detalhamento_receita: Optional[str] = None,
     produto: Optional[str] = None,
+    valor_fcp: Optional[Decimal] = None,
 ) -> None:
     chave = (dados_nfe.get("chave_nfe") or "").strip()
     mes = dtven[5:7]
@@ -176,7 +177,10 @@ def _build_item(
     ET.SubElement(ref, f"{{{GNRE_NS}}}ano").text = ano
     ET.SubElement(item, f"{{{GNRE_NS}}}dataVencimento").text = dtven
     ET.SubElement(item, f"{{{GNRE_NS}}}valor", {"tipo": "11"}).text = f"{vprincipal:.2f}"
-    ET.SubElement(item, f"{{{GNRE_NS}}}valor", {"tipo": "21"}).text = f"{vprincipal:.2f}"
+    if valor_fcp and valor_fcp > Decimal("0"):
+        ET.SubElement(item, f"{{{GNRE_NS}}}valor", {"tipo": "12"}).text = f"{valor_fcp:.2f}"
+    vtotal = vprincipal + (valor_fcp or Decimal("0"))
+    ET.SubElement(item, f"{{{GNRE_NS}}}valor", {"tipo": "21"}).text = f"{vtotal:.2f}"
     if dados_nfe.get("destinatario_cnpj") or dados_nfe.get("destinatario_cpf"):
         dest = ET.SubElement(item, f"{{{GNRE_NS}}}contribuinteDestinatario")
         dest_id = ET.SubElement(dest, f"{{{GNRE_NS}}}identificacao")
@@ -399,6 +403,7 @@ def build_lote_xml_multiplas_receitas(
         )
         vprincipal = _dec(g.get("valor"))
         _require(vprincipal > Decimal("0"), "valor de guia deve ser positivo", {"guia": g})
+        vfcp = _dec(g.get("valor_fcp")) if g.get("valor_fcp") else None
         auto_det = next(
             (e.get("codigo") for e in (det_map.get(uf) or []) if e.get("receita") == rec),
             None,
@@ -412,8 +417,9 @@ def build_lote_xml_multiplas_receitas(
             dtven=dtven,
             doc_origem_tipo=doc_origem_tipo,
             detalhamento_receita=auto_det,
+            valor_fcp=vfcp,
         )
-        valor_total_gnre += vprincipal
+        valor_total_gnre += vprincipal + (vfcp or Decimal("0"))
 
     ET.SubElement(guia, f"{{{GNRE_NS}}}valorGNRE").text = f"{valor_total_gnre:.2f}"
     if data_pagamento:
@@ -688,15 +694,26 @@ def emit_gnre_receipt(
     ek = _endpoint_key(ambiente)
     avaliacao = evaluate_gnre_need(dados_nfe, receita)
     guias = avaliacao.get("guias") or []
-    use_multiplas = uf in MULTIPLAS_RECEITAS_UFS and len(guias) > 1
+
+    guias_para_envio = guias
+    use_multiplas = False
+    if uf in MULTIPLAS_RECEITAS_UFS and guias:
+        # FCP não é item separado nestas UFs: embutir como valor tipo="12" na primeira guia principal
+        fcp_guia = next((g for g in guias if g.get("receita") == "100129"), None)
+        principal_guias = [g for g in guias if g.get("receita") != "100129"]
+        if fcp_guia and principal_guias:
+            principal_guias[0] = {**principal_guias[0], "valor_fcp": fcp_guia["valor"]}
+        guias_para_envio = principal_guias or guias
+        use_multiplas = len(guias_para_envio) > 1
+
     item: Dict[str, Any] = {"receita": receita, "recibo": None, "multiplas_receitas": use_multiplas}
     try:
         from .gnre_ws import build_soap_envelope_tlote, post_soap, get_endpoints, parse_tr_ret_lote
-        if use_multiplas:
+        if uf in MULTIPLAS_RECEITAS_UFS and guias_para_envio:
             xml = build_lote_xml_multiplas_receitas(
                 dados_nfe,
                 uf_favorecida=uf,
-                guias=guias,
+                guias=guias_para_envio,
                 data_vencimento=data_vencimento,
                 data_pagamento=data_pagamento,
             )
