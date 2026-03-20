@@ -404,6 +404,7 @@ def build_lote_xml_multiplas_receitas(
         vprincipal = _dec(g.get("valor"))
         _require(vprincipal > Decimal("0"), "valor de guia deve ser positivo", {"guia": g})
         vfcp = _dec(g.get("valor_fcp")) if g.get("valor_fcp") else None
+        guia_doc_tipo = g.get("doc_tipo") or doc_origem_tipo
         auto_det = next(
             (e.get("codigo") for e in (det_map.get(uf) or []) if e.get("receita") == rec),
             None,
@@ -415,7 +416,7 @@ def build_lote_xml_multiplas_receitas(
             dados_nfe=dados_nfe,
             vprincipal=vprincipal,
             dtven=dtven,
-            doc_origem_tipo=doc_origem_tipo,
+            doc_origem_tipo=guia_doc_tipo,
             detalhamento_receita=auto_det,
             valor_fcp=vfcp,
         )
@@ -705,6 +706,13 @@ def emit_gnre_receipt(
             principal_guias[0] = {**principal_guias[0], "valor_fcp": fcp_guia["valor"]}
         guias_para_envio = principal_guias or guias
         use_multiplas = len(guias_para_envio) > 1
+        # Resolver doc_tipo correto por receita consultando a configuração da UF
+        config = fetch_config_uf(ambiente, uf, pfx_bytes=pfx_bytes, pfx_password=pfx_password, certfile=certfile, keyfile=keyfile)
+        recs_config = config.get("receitas") or {}
+        guias_para_envio = [
+            {**g, "doc_tipo": _choose_doc_tipo(recs_config.get(g.get("receita")) or {}) or "22"}
+            for g in guias_para_envio
+        ]
 
     item: Dict[str, Any] = {"receita": receita, "recibo": None, "multiplas_receitas": use_multiplas}
     try:
