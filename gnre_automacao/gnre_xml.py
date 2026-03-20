@@ -9,6 +9,7 @@ from .gnre_ws import GNREError
 from decimal import Decimal
 
 GNRE_NS = "http://www.gnre.pe.gov.br"
+MULTIPLAS_RECEITAS_UFS: frozenset = frozenset({"PE", "RJ", "RO", "SC"})
 
 def _digits(s: Optional[str]) -> str:
     return "".join(ch for ch in (s or "") if ch.isdigit())
@@ -143,6 +144,65 @@ def evaluate_gnre_need(
             "total_taxes_estimation": f"{(vTotTrib if vTotTrib > Decimal('0') else (vICMS_int + vICMSUF_nfe + vST_nfe + vFCPUF_nfe + vFCPST_nfe + vIPI + vPIS + vCOFINS + vIBS + vCBS)):.2f}",
         },
     }
+def _build_item(
+    itens_el: ET.Element,
+    uf: str,
+    receita: str,
+    dados_nfe: Dict[str, Optional[str]],
+    vprincipal: Decimal,
+    dtven: str,
+    doc_origem_tipo: str = "22",
+    detalhamento_receita: Optional[str] = None,
+    produto: Optional[str] = None,
+) -> None:
+    chave = (dados_nfe.get("chave_nfe") or "").strip()
+    mes = dtven[5:7]
+    ano = dtven[0:4]
+    item = ET.SubElement(itens_el, f"{{{GNRE_NS}}}item")
+    rec = ET.SubElement(item, f"{{{GNRE_NS}}}receita")
+    rec.text = receita
+    if detalhamento_receita:
+        det = ET.SubElement(item, f"{{{GNRE_NS}}}detalhamentoReceita")
+        det.text = detalhamento_receita
+    if produto:
+        prod = ET.SubElement(item, f"{{{GNRE_NS}}}produto")
+        prod.text = produto
+    doc_tipo = (doc_origem_tipo or "22").strip()
+    doc = ET.SubElement(item, f"{{{GNRE_NS}}}documentoOrigem", {"tipo": doc_tipo})
+    doc.text = _digits(chave) if doc_tipo in {"22", "24"} else _digits(dados_nfe.get("numero_nf") or chave)
+    ref = ET.SubElement(item, f"{{{GNRE_NS}}}referencia")
+    ET.SubElement(ref, f"{{{GNRE_NS}}}periodo").text = "0"
+    ET.SubElement(ref, f"{{{GNRE_NS}}}mes").text = mes
+    ET.SubElement(ref, f"{{{GNRE_NS}}}ano").text = ano
+    ET.SubElement(item, f"{{{GNRE_NS}}}dataVencimento").text = dtven
+    ET.SubElement(item, f"{{{GNRE_NS}}}valor", {"tipo": "11"}).text = f"{vprincipal:.2f}"
+    ET.SubElement(item, f"{{{GNRE_NS}}}valor", {"tipo": "21"}).text = f"{vprincipal:.2f}"
+    if dados_nfe.get("destinatario_cnpj") or dados_nfe.get("destinatario_cpf"):
+        dest = ET.SubElement(item, f"{{{GNRE_NS}}}contribuinteDestinatario")
+        dest_id = ET.SubElement(dest, f"{{{GNRE_NS}}}identificacao")
+        if dados_nfe.get("destinatario_cnpj"):
+            ET.SubElement(dest_id, f"{{{GNRE_NS}}}CNPJ").text = dados_nfe.get("destinatario_cnpj")
+        elif dados_nfe.get("destinatario_cpf"):
+            ET.SubElement(dest_id, f"{{{GNRE_NS}}}CPF").text = dados_nfe.get("destinatario_cpf")
+        if dados_nfe.get("destinatario_nome"):
+            ET.SubElement(dest, f"{{{GNRE_NS}}}razaoSocial").text = dados_nfe.get("destinatario_nome")
+        if dados_nfe.get("destinatario_cod_mun"):
+            ET.SubElement(dest, f"{{{GNRE_NS}}}municipio").text = _mun5(dados_nfe.get("destinatario_cod_mun"))
+    extras_map = _load_additional_fields()
+    extras = [
+        {"codigo": e.get("codigo"), "valor": v}
+        for e in extras_map.get(uf, [])
+        if e.get("receita") == receita
+        for v in [_extra_value(e.get("titulo") or "", dados_nfe)]
+        if v
+    ]
+    if extras:
+        campos = ET.SubElement(item, f"{{{GNRE_NS}}}camposExtras")
+        for ex in extras:
+            ce = ET.SubElement(campos, f"{{{GNRE_NS}}}campoExtra")
+            ET.SubElement(ce, f"{{{GNRE_NS}}}codigo").text = str(ex["codigo"])
+            ET.SubElement(ce, f"{{{GNRE_NS}}}valor").text = ex["valor"]
+
 def build_lote_xml(
     dados_nfe: Dict[str, Optional[str]],
     uf_favorecida: Optional[str],
@@ -246,76 +306,129 @@ def build_lote_xml(
         tel.text = dados_nfe.get("emitente_telefone")
 
     itens = ET.SubElement(guia, f"{{{GNRE_NS}}}itensGNRE")
-    item = ET.SubElement(itens, f"{{{GNRE_NS}}}item")
-    rec = ET.SubElement(item, f"{{{GNRE_NS}}}receita")
-    rec.text = receita
-    if detalhamento_receita:
-        det = ET.SubElement(item, f"{{{GNRE_NS}}}detalhamentoReceita")
-        det.text = detalhamento_receita
-    if produto:
-        prod = ET.SubElement(item, f"{{{GNRE_NS}}}produto")
-        prod.text = produto
-
-    doc_tipo = (doc_origem_tipo or "22").strip()
-    doc = ET.SubElement(item, f"{{{GNRE_NS}}}documentoOrigem", {"tipo": doc_tipo})
-    doc.text = _digits(chave) if doc_tipo in {"22", "24"} else _digits(dados_nfe.get("numero_nf") or chave)
-
-    ref = ET.SubElement(item, f"{{{GNRE_NS}}}referencia")
-    periodo = ET.SubElement(ref, f"{{{GNRE_NS}}}periodo")
-    periodo.text = "0"
-    mes_el = ET.SubElement(ref, f"{{{GNRE_NS}}}mes")
-    mes_el.text = mes
-    ano_el = ET.SubElement(ref, f"{{{GNRE_NS}}}ano")
-    ano_el.text = ano
-
-    dv = ET.SubElement(item, f"{{{GNRE_NS}}}dataVencimento")
-    dv.text = dtven
-
-    valor_princ = ET.SubElement(item, f"{{{GNRE_NS}}}valor", {"tipo": "11"})
-    valor_princ.text = f"{vprincipal:.2f}"
-    v_total_item = (vprincipal)
-    valor_total = ET.SubElement(item, f"{{{GNRE_NS}}}valor", {"tipo": "21"})
-    valor_total.text = f"{v_total_item:.2f}"
-
-    if dados_nfe.get("destinatario_cnpj") or dados_nfe.get("destinatario_cpf"):
-        dest = ET.SubElement(item, f"{{{GNRE_NS}}}contribuinteDestinatario")
-        dest_id = ET.SubElement(dest, f"{{{GNRE_NS}}}identificacao")
-        if dados_nfe.get("destinatario_cnpj"):
-            d_cnpj = ET.SubElement(dest_id, f"{{{GNRE_NS}}}CNPJ")
-            d_cnpj.text = dados_nfe.get("destinatario_cnpj")
-        elif dados_nfe.get("destinatario_cpf"):
-            d_cpf = ET.SubElement(dest_id, f"{{{GNRE_NS}}}CPF")
-            d_cpf.text = dados_nfe.get("destinatario_cpf")
-        if dados_nfe.get("destinatario_nome"):
-            d_rs = ET.SubElement(dest, f"{{{GNRE_NS}}}razaoSocial")
-            d_rs.text = dados_nfe.get("destinatario_nome")
-        if dados_nfe.get("destinatario_cod_mun"):
-            d_mun = ET.SubElement(dest, f"{{{GNRE_NS}}}municipio")
-            d_mun.text = _mun5(dados_nfe.get("destinatario_cod_mun"))
-
+    auto_det = detalhamento_receita or next(
+        (e.get("codigo") for e in (_load_detalhamento_map().get(uf) or []) if e.get("receita") == receita),
+        None,
+    )
+    _build_item(
+        itens,
+        uf=uf,
+        receita=receita,
+        dados_nfe=dados_nfe,
+        vprincipal=vprincipal,
+        dtven=dtven,
+        doc_origem_tipo=(doc_origem_tipo or "22"),
+        detalhamento_receita=auto_det,
+        produto=produto,
+    )
     valor_gnre = ET.SubElement(guia, f"{{{GNRE_NS}}}valorGNRE")
-    valor_gnre.text = f"{v_total_item:.2f}"
+    valor_gnre.text = f"{vprincipal:.2f}"
     if data_pagamento:
         dp = ET.SubElement(guia, f"{{{GNRE_NS}}}dataPagamento")
         dp.text = data_pagamento
-    extras_map = _load_additional_fields()
-    extras = []
-    for e in extras_map.get(uf, []):
-        if e.get("receita") == receita:
-            v = _extra_value(e.get("titulo") or "", dados_nfe)
-            if v:
-                extras.append({"codigo": e.get("codigo"), "valor": v})
-    if extras:
-        campos = ET.SubElement(item, f"{{{GNRE_NS}}}camposExtras")
-        for ex in extras:
-            ce = ET.SubElement(campos, f"{{{GNRE_NS}}}campoExtra")
-            c = ET.SubElement(ce, f"{{{GNRE_NS}}}codigo")
-            c.text = str(ex["codigo"])
-            vv = ET.SubElement(ce, f"{{{GNRE_NS}}}valor")
-            vv.text = ex["valor"]
+    xml_str = ET.tostring(lote, encoding="utf-8", xml_declaration=False)
+    return xml_str.decode("utf-8")
+
+def build_lote_xml_multiplas_receitas(
+    dados_nfe: Dict[str, Optional[str]],
+    uf_favorecida: Optional[str],
+    guias: list,
+    data_vencimento: str,
+    data_pagamento: str,
+    doc_origem_tipo: str = "22",
+    razao_social_emitente: Optional[str] = None,
+) -> str:
+    """Constrói um TLote_GNRE com um único TDadosGNRE contendo múltiplos <item>
+    (um por entrada em `guias`). <valorGNRE> = soma de todos os itens.
+
+    Cada guia deve ser um dict com "receita" (str de 6 dígitos) e "valor" (str decimal).
+    Não chama fetch_config_uf. Detalhamento e camposExtras são carregados dos JSONs locais.
+    """
+    uf = (uf_favorecida or dados_nfe.get("uf_destinatario") or "").strip()
+    _require(bool(uf), "ufFavorecida é obrigatória", {"uf_favorecida": uf})
+    _require(bool(guias), "guias não pode ser vazio")
+    ident_ok = bool(dados_nfe.get("emitente_cnpj")) or bool(dados_nfe.get("emitente_cpf"))
+    _require(ident_ok, "Emitente deve possuir CNPJ ou CPF", {
+        "emitente_cnpj": dados_nfe.get("emitente_cnpj"),
+        "emitente_cpf": dados_nfe.get("emitente_cpf"),
+    })
+    chave = (dados_nfe.get("chave_nfe") or "").strip()
+    _require(bool(chave) and chave.isdigit() and 1 <= len(chave) <= 44, "documentoOrigem inválido", {"chave_nfe": chave})
+    dtven = data_vencimento or _date_only(dados_nfe.get("data_emissao")) or datetime.now().date().isoformat()
+
+    ET.register_namespace("", GNRE_NS)
+    lote = ET.Element(f"{{{GNRE_NS}}}TLote_GNRE", {"versao": "2.00"})
+    guias_el = ET.SubElement(lote, f"{{{GNRE_NS}}}guias")
+    guia = ET.SubElement(guias_el, f"{{{GNRE_NS}}}TDadosGNRE", {"versao": "2.00"})
+
+    ET.SubElement(guia, f"{{{GNRE_NS}}}ufFavorecida").text = uf
+    ET.SubElement(guia, f"{{{GNRE_NS}}}tipoGnre").text = "0"
+
+    contrib_emit = ET.SubElement(guia, f"{{{GNRE_NS}}}contribuinteEmitente")
+    identificacao = ET.SubElement(contrib_emit, f"{{{GNRE_NS}}}identificacao")
+    if dados_nfe.get("emitente_cnpj"):
+        ET.SubElement(identificacao, f"{{{GNRE_NS}}}CNPJ").text = dados_nfe.get("emitente_cnpj")
+    elif dados_nfe.get("emitente_cpf"):
+        ET.SubElement(identificacao, f"{{{GNRE_NS}}}CPF").text = dados_nfe.get("emitente_cpf")
+    if dados_nfe.get("emitente_ie") and (dados_nfe.get("uf_emitente") == uf):
+        ET.SubElement(identificacao, f"{{{GNRE_NS}}}IE").text = dados_nfe.get("emitente_ie")
+    rs_text = razao_social_emitente or dados_nfe.get("emitente_nome")
+    if rs_text:
+        ET.SubElement(contrib_emit, f"{{{GNRE_NS}}}razaoSocial").text = rs_text
+    if dados_nfe.get("emitente_endereco"):
+        ET.SubElement(contrib_emit, f"{{{GNRE_NS}}}endereco").text = dados_nfe.get("emitente_endereco")
+    if dados_nfe.get("emitente_cod_mun"):
+        ET.SubElement(contrib_emit, f"{{{GNRE_NS}}}municipio").text = _mun5(dados_nfe.get("emitente_cod_mun"))
+    if dados_nfe.get("uf_emitente"):
+        ET.SubElement(contrib_emit, f"{{{GNRE_NS}}}uf").text = dados_nfe.get("uf_emitente")
+    if dados_nfe.get("emitente_cep"):
+        ET.SubElement(contrib_emit, f"{{{GNRE_NS}}}cep").text = dados_nfe.get("emitente_cep")
+    if dados_nfe.get("emitente_telefone"):
+        ET.SubElement(contrib_emit, f"{{{GNRE_NS}}}telefone").text = dados_nfe.get("emitente_telefone")
+
+    itens_el = ET.SubElement(guia, f"{{{GNRE_NS}}}itensGNRE")
+    det_map = _load_detalhamento_map()
+    valor_total_gnre = Decimal("0")
+
+    for g in guias:
+        rec = (g.get("receita") or "").strip()
+        _require(
+            bool(rec) and rec.isdigit() and len(rec) == 6,
+            "receita de cada guia deve ter 6 dígitos",
+            {"receita": rec},
+        )
+        vprincipal = _dec(g.get("valor"))
+        _require(vprincipal > Decimal("0"), "valor de guia deve ser positivo", {"guia": g})
+        auto_det = next(
+            (e.get("codigo") for e in (det_map.get(uf) or []) if e.get("receita") == rec),
+            None,
+        )
+        _build_item(
+            itens_el,
+            uf=uf,
+            receita=rec,
+            dados_nfe=dados_nfe,
+            vprincipal=vprincipal,
+            dtven=dtven,
+            doc_origem_tipo=doc_origem_tipo,
+            detalhamento_receita=auto_det,
+        )
+        valor_total_gnre += vprincipal
+
+    ET.SubElement(guia, f"{{{GNRE_NS}}}valorGNRE").text = f"{valor_total_gnre:.2f}"
+    if data_pagamento:
+        ET.SubElement(guia, f"{{{GNRE_NS}}}dataPagamento").text = data_pagamento
 
     xml_str = ET.tostring(lote, encoding="utf-8", xml_declaration=False)
     return xml_str.decode("utf-8")
+
+def needs_multiplas_receitas(dados_nfe: Dict[str, Optional[str]]) -> bool:
+    """Retorna True se a NF-e deve usar múltiplas receitas (UF PE/RJ/RO/SC com 2+ tributos)."""
+    uf = (dados_nfe.get("uf_destinatario") or "").strip()
+    if uf not in MULTIPLAS_RECEITAS_UFS:
+        return False
+    avaliacao = evaluate_gnre_need(dados_nfe)
+    return len(avaliacao.get("guias") or []) > 1
 
 def build_lote_consulta_xml(
     uf: str,
@@ -573,21 +686,33 @@ def emit_gnre_receipt(
     uf = (dados_nfe.get("uf_destinatario") or "").strip()
     _require(bool(uf), "ufFavorecida é obrigatória", {"uf_favorecida": uf})
     ek = _endpoint_key(ambiente)
-    item: Dict[str, Any] = {"receita": receita, "recibo": None}
+    avaliacao = evaluate_gnre_need(dados_nfe, receita)
+    guias = avaliacao.get("guias") or []
+    use_multiplas = uf in MULTIPLAS_RECEITAS_UFS and len(guias) > 1
+    item: Dict[str, Any] = {"receita": receita, "recibo": None, "multiplas_receitas": use_multiplas}
     try:
-        xml = build_lote_xml_with_config(
-            dados_nfe,
-            ambiente,
-            uf,
-            receita=receita,
-            data_vencimento=data_vencimento,
-            data_pagamento=data_pagamento,
-            pfx_bytes=pfx_bytes,
-            pfx_password=pfx_password,
-            certfile=certfile,
-            keyfile=keyfile,
-        )
         from .gnre_ws import build_soap_envelope_tlote, post_soap, get_endpoints, parse_tr_ret_lote
+        if use_multiplas:
+            xml = build_lote_xml_multiplas_receitas(
+                dados_nfe,
+                uf_favorecida=uf,
+                guias=guias,
+                data_vencimento=data_vencimento,
+                data_pagamento=data_pagamento,
+            )
+        else:
+            xml = build_lote_xml_with_config(
+                dados_nfe,
+                ambiente,
+                uf,
+                receita=receita,
+                data_vencimento=data_vencimento,
+                data_pagamento=data_pagamento,
+                pfx_bytes=pfx_bytes,
+                pfx_password=pfx_password,
+                certfile=certfile,
+                keyfile=keyfile,
+            )
         env = build_soap_envelope_tlote(xml)
         resp = post_soap(get_endpoints(ek)["recepcao_lote"], env, pfx_bytes=pfx_bytes, pfx_password=pfx_password, certfile=certfile, keyfile=keyfile)
         recibo = parse_tr_ret_lote(resp)

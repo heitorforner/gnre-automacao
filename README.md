@@ -19,58 +19,58 @@ pip install gnre-automacao
 
 ## Uso rápido
 
-Exemplo de fluxo completo automático: consulta as regras da UF. Quando houver mais de uma cobrança (por exemplo DIFAL e FCP), envia guias separadas e retorna uma lista de recibos identificados.
+Para as UFs **PE, RJ, RO e SC**, quando há mais de um tributo a recolher (ex.: DIFAL + FCP), `emit_gnre_receipt` envia automaticamente todos os tributos em uma única guia de múltiplas receitas. Para as demais UFs, cada tributo é enviado em uma guia separada. Use `needs_multiplas_receitas` para adaptar o fluxo:
 
 ```python
 from pathlib import Path
 import base64
-from decimal import Decimal
+from datetime import date
 from gnre_automacao import (
-    parse_nfe_xml_bytes, evaluate_gnre_need, generate_gnre_receipts, build_soap_envelope_tlote,
-    post_soap, get_endpoints, parse_tr_ret_lote,
-    build_consulta_resultado_xml, build_soap_envelope,
-    parse_result_status, extract_linha_digitavel_and_pdf, GNREError
+    parse_nfe_xml_bytes, evaluate_gnre_need,
+    needs_multiplas_receitas, emit_gnre_receipt, consult_gnre_receipt,
+    GNREError,
 )
-from datetime import datetime, timedelta
 
 pfx_bytes = Path("certificado.pfx").read_bytes()
 pfx_password = "SENHA_DO_CERTIFICADO"
 nfe_bytes = Path("nfe.xml").read_bytes()
+AMBIENTE = "1"  # "1" = produção, "2" = teste
 
 dados = parse_nfe_xml_bytes(nfe_bytes)
 need = evaluate_gnre_need(dados, receita=None)
+
 if need.get("necessario") == "N":
     print("GNRE não necessária")
 elif need.get("necessario") == "M":
-    print("GNRE manual necessária")
+    print("GNRE manual necessária (SP/ES)")
 else:
-
-    AMBIENTE = "1"
+    venc = date.today().isoformat()
+    guias = need.get("guias") or []
     recibos = []
-    for guia in (need.get("guias") or []):
-        r = emit_gnre_receipt(
-            dados,
-            AMBIENTE,
-            guia["receita"],
-            venc,
-            venc,
-            pfx_bytes,
-            pfx_password,
-        )
-        print("emit:", guia["receita"], r.get("recibo") or r.get("error"))
-        recibos.append({"tipo": "fcp" if guia["receita"] == "100129" else "principal", "recibo": r.get("recibo")})
+
+    if needs_multiplas_receitas(dados):
+        # PE, RJ, RO, SC com 2+ tributos: um único envio com todas as receitas
+        r = emit_gnre_receipt(dados, AMBIENTE, guias[0]["receita"], venc, venc, pfx_bytes, pfx_password)
+        print("múltiplas receitas:", r.get("multiplas_receitas"), "| recibo:", r.get("recibo") or r.get("error"))
+        recibos.append(r)
+    else:
+        # Demais UFs: uma guia por receita
+        for guia in guias:
+            r = emit_gnre_receipt(dados, AMBIENTE, guia["receita"], venc, venc, pfx_bytes, pfx_password)
+            print("receita:", guia["receita"], "| recibo:", r.get("recibo") or r.get("error"))
+            recibos.append(r)
 
     for r in recibos:
         if not r.get("recibo"):
             continue
         result = consult_gnre_receipt(AMBIENTE, r["recibo"], pfx_bytes, pfx_password, incluir_pdf=True, incluir_arquivo_pagamento=True)
         status = result.get("status") or {}
-        print(r["tipo"], status.get("numeroRecibo"), status.get("codigo"), status.get("descricao"))
-        print(r["tipo"], "Linha digitável:", result.get("linhaDigitavel"))
-        print(r["tipo"], "Valor:", result.get("valor"))
-        print(r["tipo"], "Vencimento:", result.get("dataVencimento"))
+        print(status.get("numeroRecibo"), status.get("codigo"), status.get("descricao"))
+        print("Linha digitável:", result.get("linhaDigitavel"))
+        print("Valor:", result.get("valor"), "| Vencimento:", result.get("dataVencimento"))
         if result.get("pdfBase64"):
-            Path(f"gnre_guia_{r['tipo']}.pdf").write_bytes(base64.b64decode(result["pdfBase64"]))
+            Path(f"gnre_{r['recibo']}.pdf").write_bytes(base64.b64decode(result["pdfBase64"]))
+```
 
 ## Retornos e cenários
 
@@ -155,10 +155,15 @@ else:
 ```
 
 ### emit_gnre_receipt
-- Sucesso:
+- Sucesso (guia única):
 
 ```json
-{ "receita": "100129", "recibo": "26000045455789" }
+{ "receita": "100102", "recibo": "26000045455789", "multiplas_receitas": false }
+```
+- Sucesso (múltiplas receitas — PE/RJ/RO/SC com 2+ tributos):
+
+```json
+{ "receita": "100102", "recibo": "26000045455790", "multiplas_receitas": true }
 ```
 - Falha de recepção (ex.: conteúdo inválido):
 
@@ -166,6 +171,7 @@ else:
 {
   "receita": "100129",
   "recibo": null,
+  "multiplas_receitas": false,
   "error": "Falha ao obter recibo de recepção",
   "recepcao_xml": "<soapenv:Envelope>...</soapenv:Envelope>"
 }
@@ -175,6 +181,7 @@ else:
 ```json
 {
   "receita": "100129",
+  "multiplas_receitas": false,
   "error": "ufFavorecida é obrigatória",
   "details": { "uf_favorecida": "" }
 }
@@ -226,8 +233,13 @@ else:
 ## Principais funções
 - `parse_nfe_xml_bytes(bytes)` — extrai dados relevantes da NF-e
 - `evaluate_gnre_need(dados, receita=None)` — avalia necessidade de GNRE; quando a UF do emitente for diferente da UF do destinatário e a UF de destino for SP ou ES, retorna `necessario = "M"` (manual) somente se houver valor > 0; caso valor seja zero, retorna `necessario = "N"`
+- `needs_multiplas_receitas(dados)` — retorna `True` se a NF-e deve usar o formato de múltiplas receitas (destinatário em PE/RJ/RO/SC com 2 ou mais tributos a recolher)
+- `emit_gnre_receipt(dados, ambiente, receita, data_vencimento, data_pagamento, pfx_bytes, pfx_password, ...)` — emite a guia; para PE/RJ/RO/SC com 2+ tributos, combina automaticamente todas as receitas em uma única guia e retorna `"multiplas_receitas": true`
+- `consult_gnre_receipt(ambiente, recibo, pfx_bytes, pfx_password, ...)` — consulta o resultado de um recibo
 - `build_lote_xml_with_config(...)` — monta o XML do lote GNRE consultando regras da UF e aplicando campos extras automaticamente
-- `build_lote_xml(...)` — versão manual para montar o XML do lote GNRE
+- `build_lote_xml(...)` — versão manual para montar o XML do lote GNRE (guia única)
+- `build_lote_xml_multiplas_receitas(dados, uf_favorecida, guias, data_vencimento, data_pagamento, ...)` — monta o XML com múltiplas receitas num único `TDadosGNRE`; `guias` é uma lista de `{"receita": "100102", "valor": "27.62"}`
+- `MULTIPLAS_RECEITAS_UFS` — `frozenset` com as UFs que usam múltiplas receitas: `{"PE", "RJ", "RO", "SC"}`
 - `build_soap_envelope_tlote(xml)` — envelope SOAP para recepção de lote
 - `post_soap(url, envelope_xml, ...)` — envia requisição SOAP com certificado
 - `parse_tr_ret_lote(soap_xml)` — extrai número de recibo do retorno da recepção
@@ -250,4 +262,5 @@ MIT. Veja o arquivo `LICENSE`.
 - Não comite senhas ou certificados no repositório.
 - Os serviços GNRE podem ter regras específicas por UF e receita; sempre valide no ambiente de teste antes de ir para produção.
 - Não funciona para as UFs SP e ES via webservice desta biblioteca.
+- Para as UFs PE, RJ, RO e SC com múltiplos tributos, `emit_gnre_receipt` envia uma única guia com todas as receitas combinadas. Chame-a **uma única vez** (não em loop por guia), pois internamente já inclui todos os tributos detectados.
 - É obrigatório cadastrar o CNPJ no portal GNRE antes de utilizar os serviços: https://www.gnre.pe.gov.br:444/gnre/portal/GNRE_Principal.jsp
