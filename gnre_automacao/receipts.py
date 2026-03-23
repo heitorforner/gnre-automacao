@@ -86,10 +86,10 @@ def consult_receipts(
                     "codigo": raw.get("cStat"),
                     "descricao": raw.get("xMotivo"),
                 }
-                dua_data = raw.get("dua") or {}
-                entry["linhaDigitavel"] = dua_data.get("nBar")
-                entry["valor"] = dua_data.get("vTot")
-                entry["dataVencimento"] = dua_data.get("dVen")
+                inf_dua = ((raw.get("dua") or {}).get("infDUAe")) or {}
+                entry["linhaDigitavel"] = (inf_dua.get("ide") or {}).get("cBarra")
+                entry["valor"] = (inf_dua.get("valor") or {}).get("vTot")
+                entry["dataVencimento"] = (inf_dua.get("data") or {}).get("dVen")
                 try:
                     cnpj_digits = re.sub(r"\D", "", cnpj_emitente)
                     boleto = download_boleto_dua_es(
