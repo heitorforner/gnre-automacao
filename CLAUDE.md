@@ -4,58 +4,67 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-`gnre-automacao` is a Python library for automating GNRE (Guia Nacional de Recolhimento Estadual) generation and submission in Brazil. It parses NF-e XML files, determines GNRE necessity, builds GNRE XML batches, communicates with the official GNRE webservice via SOAP, and extracts payment information from responses.
+Python library (`gnre-automacao`) for generating and submitting GNRE (tax payment slips) and DUA-e (Espírito Santo) from NF-e data. Published to PyPI. No test suite exists — validation is done manually against the webservices.
 
-## Commands
+## Build & Install
 
 ```bash
-# Install for development
-pip install -e .
-
-# Build distribution package
-python -m build
+pip install -e .                   # editable install
+python -m build                    # build wheel/sdist for distribution
 ```
 
-There is no automated test suite. Validation is done via focused local checks.
+**Only dependency:** `cryptography >= 41.0.0`. No dev dependencies are defined — add tools (pytest, ruff, etc.) manually as needed.
+
+## Release Process
+
+Releases are published to PyPI automatically via GitHub Actions when a GitHub release is created. To release:
+1. Bump `version` in `pyproject.toml`
+2. Push and create a GitHub release — CI handles the PyPI upload.
 
 ## Architecture
 
-The library has four modules with a clear data-flow:
+The package is a single Python module (`gnre_automacao/`) with these files:
 
-**NF-e → Parse → Evaluate → Build XML → SOAP → Submit → Parse Response**
+| File | Responsibility |
+|------|---------------|
+| `nfe_parser.py` | Parses NF-e XML (`nfeProc`, `NFe`, or `infNFe` roots) into a flat `dados_nfe` dict with tax values and addresses |
+| `gnre_xml.py` | Builds GNRE XML lotes, evaluates tax need, emits/consults GNRE receipts. Loads UF config from bundled JSON files |
+| `gnre_ws.py` | SOAP envelope construction, HTTPS transport (stdlib only), XML response parsing, `GNREError` exception |
+| `dua_es.py` | Full DUA-e (ES) implementation: SOAP 1.2 envelopes, emit/consult/boleto download, municipality/service-area lookups |
+| `receipts.py` | Routing layer: `generate_receipts` and `consult_receipts` dispatch to DUA-e for ES, GNRE for all other states |
+| `uf_additional_fields.json` | Per-UF extra XML fields required by some states (lazy-loaded) |
+| `uf_detalhamento.json` | Per-UF/receita `detalhamento` codes (lazy-loaded) |
 
-### Modules
+### Data flow
 
-- **[gnre_automacao/nfe_parser.py](gnre_automacao/nfe_parser.py)** — Parses NF-e XML (supports NFe, nfeProc, infNFe formats) into normalized dicts. Extracts emitter/destination data, tax values (ICMS, ICMS-UF/DIFAL, ST, FCP, IPI, PIS, COFINS, IBS, CBS).
+```
+NF-e XML bytes
+  → parse_nfe_xml_bytes()          → dados_nfe dict
+  → evaluate_gnre_need(dados_nfe)  → {necessario, guias, taxes, ...}
+  → generate_receipts() / emit_gnre_receipt() / emit_dua_es()
+      → build XML lote → wrap in SOAP → post_soap() → parse response → recibo
+  → consult_receipts() / consult_gnre_receipt() / consult_dua_es()
+      → build consulta XML → SOAP → parse TResultLote_GNRE / DUA response
+```
 
-- **[gnre_automacao/gnre_xml.py](gnre_automacao/gnre_xml.py)** — Core GNRE logic. `evaluate_gnre_need()` determines if GNRE is required (returns `"S"`, `"N"`, or `"M"` for manual). Builds GNRE XML batches with state-specific rules loaded from JSON configs.
+### Key routing rules
 
-- **[gnre_automacao/gnre_ws.py](gnre_automacao/gnre_ws.py)** — SOAP envelope assembly, HTTPS communication using PFX certificates (converted to temp PEM files), response parsing, and `GNREError` exception.
+- `uf_destinatario == "ES"` → DUA-e webservice (`dua_es.py`)
+- `uf_destinatario == "SP"` → manual GNRE only (`necessario="M"`)
+- `uf_destinatario in {"PE","RJ","RO","SC"}` with 2+ taxes → single multi-receita GNRE lote
+- All other UFs → one GNRE lote per receita
 
-- **[gnre_automacao/__init__.py](gnre_automacao/__init__.py)** — Public API contract. All 19 exported functions are the stable interface.
+### `GNREError`
 
-### State-Specific Behavior (JSON configs)
+Raised throughout the codebase. Has fields: `codigo`, `descricao`, `recibo`, `raw_xml`, `details`. Always catch this when calling emit/consult functions.
 
-- **[gnre_automacao/uf_additional_fields.json](gnre_automacao/uf_additional_fields.json)** — Extra XML fields required per UF
-- **[gnre_automacao/uf_detalhamento.json](gnre_automacao/uf_detalhamento.json)** — Detalhamento codes per receita per UF
+### Certificate handling
 
-### GNRE Tax Receitas
+PFX bytes are converted to temporary PEM files via `ssl_context_from_pfx_bytes()`, used for the HTTPS request, then immediately deleted. The library uses only stdlib `http.client` for transport — no `requests` or `httpx`.
 
-| Receita | Tax Type | Trigger Condition |
-|---------|----------|-------------------|
-| 100102  | ICMS-DIFAL | Interstate, final consumer, non-taxpayer, value > 0 |
-| 100129  | FCP | FCP-UF or FCP-ST value > 0 |
-| 100099  | ICMS-ST | ST value > 0 |
+### GNRE ambiente values
 
-### Manual Mode (necessario="M")
-
-SP and ES inter-state operations with guides return `"M"` — these states require manual GNRE submission and are not supported via webservice.
-
-## Key Conventions
-
-- Always use `Decimal` for monetary values — never float arithmetic
-- Keep public API stable in `__init__.py`; internal refactors must not break exports
-- Certificate handling: PFX bytes → temp PEM files → SSL context → clean up; never hardcode secrets
-- SOAP parsing must be defensive: detect SOAP Faults, handle partial/malformed responses
-- Both `teste` and `producao` endpoints must be supported via `get_endpoints(ambiente)`
-- CNPJ must be registered at the GNRE portal before use; SP and ES do not support webservice submission
+The `ambiente` parameter is normalized at the call site:
+- GNRE: `"producao"` or `"teste"` → `get_endpoints(ambiente)`
+- DUA-e: `"producao"` or `"homologacao"` → `get_dua_es_endpoints(ambiente)`
+- The routing layer (`receipts.py`) accepts any of these and passes them through unchanged.

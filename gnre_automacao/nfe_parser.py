@@ -90,6 +90,7 @@ def parse_nfe_xml(path_xml: str) -> Dict[str, Optional[str]]:
     dest_cpf = _text(dest, "CPF") if dest is not None else None
     dest_nome = _text(dest, "xNome") if dest is not None else None
     dest_cmun = _text(end_dest if end_dest is not None else None, "cMun")
+    dest_xmun = _text(end_dest if end_dest is not None else None, "xMun")
     indIEDest = _text(dest, "indIEDest") if dest is not None else None
 
     icmstot = total.find(NFE_NS + "ICMSTot") if total is not None else None
@@ -126,6 +127,7 @@ def parse_nfe_xml(path_xml: str) -> Dict[str, Optional[str]]:
         "destinatario_cpf": dest_cpf,
         "destinatario_nome": dest_nome,
         "destinatario_cod_mun": dest_cmun,
+        "destinatario_nome_mun": dest_xmun,
         "valor_vST": vST,
         "valor_vICMSUFDest": vICMSUFDest,
         "valor_vFCPST": vFCPST,
@@ -178,6 +180,7 @@ def parse_nfe_xml_bytes(xml_bytes: bytes) -> Dict[str, Optional[str]]:
     dest_cpf = _text(dest, "CPF") if dest is not None else None
     dest_nome = _text(dest, "xNome") if dest is not None else None
     dest_cmun = _text(end_dest if end_dest is not None else None, "cMun")
+    dest_xmun = _text(end_dest if end_dest is not None else None, "xMun")
     indIEDest = _text(dest, "indIEDest") if dest is not None else None
     icmstot = total.find(NFE_NS + "ICMSTot") if total is not None else None
     vST = _text(icmstot, "vST") if icmstot is not None else None
@@ -212,6 +215,7 @@ def parse_nfe_xml_bytes(xml_bytes: bytes) -> Dict[str, Optional[str]]:
         "destinatario_cpf": dest_cpf,
         "destinatario_nome": dest_nome,
         "destinatario_cod_mun": dest_cmun,
+        "destinatario_nome_mun": dest_xmun,
         "valor_vST": vST,
         "valor_vICMSUFDest": vICMSUFDest,
         "valor_vFCPST": vFCPST,

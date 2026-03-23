@@ -105,7 +105,7 @@ def ssl_context_from_pfx_bytes(pfx_bytes: bytes, password: str) -> ssl.SSLContex
 def post_soap(url: str, envelope_xml: str, certfile: Optional[str] = None, keyfile: Optional[str] = None, pfx_bytes: Optional[bytes] = None, pfx_password: Optional[str] = None, timeout: int = 30, verify_ssl: bool = True) -> str:
     parsed = urlparse(url)
     if verify_ssl:
-        if pfx_bytes and pfx_password:
+        if pfx_bytes and pfx_password is not None:
             context = ssl_context_from_pfx_bytes(pfx_bytes, pfx_password)
         else:
             context = ssl.create_default_context()

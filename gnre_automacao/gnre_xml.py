@@ -9,7 +9,7 @@ from .gnre_ws import GNREError
 from decimal import Decimal
 
 GNRE_NS = "http://www.gnre.pe.gov.br"
-MULTIPLAS_RECEITAS_UFS: frozenset = frozenset({"RJ", "RO"})
+MULTIPLAS_RECEITAS_UFS: frozenset = frozenset({"RJ", "RO", "PE", "SC"})
 
 def _digits(s: Optional[str]) -> str:
     return "".join(ch for ch in (s or "") if ch.isdigit())
@@ -123,13 +123,14 @@ def evaluate_gnre_need(
             vprincipal = vST_nfe + vICMSUF_nfe
     vFCP_total = vFCPUF_nfe + vFCPST_nfe
     v_total_item = vprincipal + vFCP_total
-    manual = (uf_dest in {"SP", "ES"} and uf_emit and uf_emit != uf_dest and bool(guides))
+    manual = (uf_dest == "SP" and uf_emit and uf_emit != uf_dest and bool(guides))
+    dua_es = (uf_dest == "ES" and uf_emit and uf_emit != uf_dest and bool(guides))
     return {
-        "receita": None if manual else (r if r else None),
+        "receita": None if (manual or dua_es) else (r if r else None),
         "valor_principal": f"{vprincipal:.2f}",
         "valor_fcp": f"{vFCP_total:.2f}",
         "valor_total_item": f"{v_total_item:.2f}",
-        "necessario": "M" if manual else ("S" if bool(guides) else "N"),
+        "necessario": "M" if manual else ("D" if dua_es else ("S" if bool(guides) else "N")),
         "guias": guides,
         "taxes": {
             "icms": f"{vICMS_int:.2f}",
@@ -497,7 +498,7 @@ def build_consulta_resultado_xml(
     ET.register_namespace("", GNRE_NS)
     cons = ET.Element(f"{{{GNRE_NS}}}TConsLote_GNRE")
     amb = ET.SubElement(cons, f"{{{GNRE_NS}}}ambiente")
-    amb.text = ambiente
+    amb.text = _tp_amb_gnre(ambiente)
     nr = ET.SubElement(cons, f"{{{GNRE_NS}}}numeroRecibo")
     nr.text = numero_recibo
     if incluir_pdf:
@@ -521,7 +522,7 @@ def build_consulta_config_uf_xml(
     ET.register_namespace("", GNRE_NS)
     cons = ET.Element(f"{{{GNRE_NS}}}TConsultaConfigUf")
     amb = ET.SubElement(cons, f"{{{GNRE_NS}}}ambiente")
-    amb.text = ambiente
+    amb.text = _tp_amb_gnre(ambiente)
     uf_el = ET.SubElement(cons, f"{{{GNRE_NS}}}uf")
     uf_el.text = uf
     if receita:
@@ -559,6 +560,11 @@ def _endpoint_key(ambiente: str) -> str:
     if a in {"2", "teste"}:
         return "teste"
     raise GNREError("Ambiente inválido", details={"ambiente": ambiente})
+
+
+def _tp_amb_gnre(ambiente: str) -> str:
+    """Convert ambiente string to GNRE numeric code: '1' (producao) or '2' (teste)."""
+    return "1" if _endpoint_key(ambiente) == "producao" else "2"
 
 def fetch_config_uf(ambiente: str, uf: str, pfx_bytes: Optional[bytes] = None, pfx_password: Optional[str] = None, certfile: Optional[str] = None, keyfile: Optional[str] = None) -> Dict[str, Any]:
     from .gnre_ws import build_soap_envelope, post_soap, get_endpoints, parse_config_uf

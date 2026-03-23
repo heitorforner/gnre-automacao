@@ -1,39 +1,35 @@
 # Project Guidelines
 
-## Code Style
-- Follow existing Python 3.10+ style with type hints on public and internal functions.
-- Keep names in snake_case and constants in UPPER_CASE.
-- Preserve module-level helper patterns used in the package (for example: _dec, _require, and cached JSON loaders).
-- Keep the public API surface stable via exports in gnre_automacao/__init__.py.
-
 ## Architecture
-- This repository is a Python library with a small, explicit module split:
-  - gnre_automacao/nfe_parser.py: parse NF-e XML data into normalized dictionaries.
-  - gnre_automacao/gnre_xml.py: evaluate GNRE need and build GNRE XML payloads.
-  - gnre_automacao/gnre_ws.py: SOAP envelopes, HTTPS communication, SSL/PFX handling, and SOAP response parsing.
-  - gnre_automacao/__init__.py: package exports and public API contract.
-- UF-specific behavior is data-driven through:
-  - gnre_automacao/uf_additional_fields.json
-  - gnre_automacao/uf_detalhamento.json
+- This repository is a Python library, not an application. Keep changes focused on the public package in `gnre_automacao/`.
+- Use the existing module split:
+  - `nfe_parser.py` parses NF-e XML into a flat `dados_nfe` dict.
+  - `gnre_xml.py` contains GNRE tax evaluation and XML builders.
+  - `gnre_ws.py` contains SOAP transport, SSL/PFX handling, and XML response parsing.
+  - `dua_es.py` contains the ES-specific DUA-e integration.
+  - `receipts.py` is the routing layer: ES uses DUA-e, other UFs use GNRE.
+- Preserve the public API exported by `gnre_automacao/__init__.py` unless the task explicitly requires an API change.
 
-## Build and Test
-- Install package for development:
-  - pip install -e .
-- Build distribution artifacts:
-  - python -m pip install build
-  - python -m build
-- There is currently no committed automated test suite. If a change affects tax calculations, XML generation, or SOAP parsing, validate behavior with focused local checks before finalizing.
+## Build And Validation
+- Install for development with `pip install -e .`.
+- Build distributable artifacts with `python -m build`.
+- There is no automated test suite in this repo. For changes to tax logic, XML generation, SOAP parsing, routing, or certificate handling, run focused local validation and call out any validation gaps in the final response.
 
 ## Conventions
-- Always use Decimal for monetary values. Do not introduce float arithmetic in tax or total calculations.
-- Preserve GNRE domain behavior already encoded in the library, including:
-  - receita and guia selection logic in gnre_automacao/gnre_xml.py
-  - manual handling for SP/ES scenarios when applicable
-- Keep SOAP XML handling defensive:
-  - detect and raise on SOAP Fault responses
-  - keep parsing resilient when tags are missing
-- Keep certificate handling secure:
-  - never hardcode secrets
-  - preserve temporary file cleanup for PEM material derived from PFX
-- Keep compatibility with both test and production endpoints through get_endpoints logic.
-- Do not commit certificates, keys, or secret files (.pfx, .pem, .key, .env).
+- Use Python 3.10+ style consistent with the existing codebase.
+- Use `Decimal` for monetary and tax values. Do not introduce float arithmetic.
+- Keep XML handling defensive and namespace-aware with `xml.etree.ElementTree`, matching the existing helpers and patterns.
+- Keep transport code on the standard library stack already used here. Do not introduce `requests` or `httpx` unless explicitly requested.
+- Preserve secure certificate handling: PFX material is converted to temporary PEM files and must be cleaned up after use.
+- Prefer raising or propagating `GNREError` for domain and webservice failures, and preserve its structured details when possible.
+- Keep UF-specific behavior data-driven through `uf_additional_fields.json` and `uf_detalhamento.json` when applicable.
+
+## Project-Specific Rules
+- `uf_destinatario == "ES"` routes to DUA-e, not GNRE.
+- `uf_destinatario == "SP"` is manual-only for GNRE webservice flows.
+- PE, RJ, RO, and SC with multiple applicable taxes should stay on the existing multi-receita GNRE flow.
+- Avoid committing certificates, keys, secrets, or sample credentials.
+
+## References
+- Use `README.md` for usage examples and return-shape expectations.
+- Use `CLAUDE.md` for architecture, data flow, and release-process details.
