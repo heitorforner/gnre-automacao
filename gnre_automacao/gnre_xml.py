@@ -168,9 +168,15 @@ def _build_item(
     if detalhamento_receita:
         det = ET.SubElement(item, f"{{{GNRE_NS}}}detalhamentoReceita")
         det.text = detalhamento_receita
-    if produto:
+    _det_entries = _load_detalhamento_map().get(uf) or []
+    _auto_produto = next(
+        (e.get("produto") for e in _det_entries if e.get("receita") == receita and e.get("produto")),
+        None,
+    )
+    _produto = produto or dados_nfe.get("produto") or _auto_produto
+    if _produto:
         prod = ET.SubElement(item, f"{{{GNRE_NS}}}produto")
-        prod.text = produto
+        prod.text = _produto
     doc_tipo = (doc_origem_tipo or "22").strip()
     if doc_tipo:
         doc = ET.SubElement(item, f"{{{GNRE_NS}}}documentoOrigem", {"tipo": doc_tipo})

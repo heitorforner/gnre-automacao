@@ -291,6 +291,19 @@ Informe `pfx_bytes` e `pfx_password` diretamente. O certificado é temporariamen
 - Não comite senhas ou certificados no repositório.
 - Sempre valide no ambiente de teste antes de ir para produção.
 
+### Erros transientes de webservice estadual (código 703)
+
+O erro 703 com `situacaoGuia=3` indica que o portal GNRE nacional recebeu o lote mas não conseguiu concluir a validação com o serviço da UF no momento. Pode ocorrer por:
+
+- **Falha de comunicação** entre o portal nacional e o webservice da UF (`"Falha na comunicacao com o serviço da UF"`)
+- **Resposta inválida** do webservice estadual (`"Falha na validacao do retorno da UF: ..."`)
+
+Nesses casos, **não gere uma nova guia** — o recibo já existe no sistema e uma nova emissão geraria duplicata. A ação correta é retentar `consult_gnre_receipt` com o mesmo recibo até receber uma resposta definitiva:
+
+- `situacaoGuia=1` — aprovada (guia disponível para pagamento)
+- `situacaoGuia=2` — rejeitada definitivamente (gere nova guia corrigindo os erros apontados)
+- `situacaoGuia=3` — ainda pendente (retente a consulta mais tarde)
+
 ## Dicas de depuração
 
 Para inspecionar a estrutura de XML esperada por uma UF/receita específica, use o gerador oficial do portal GNRE, gere a guia manualmente e compare o XML resultante com o produzido pela biblioteca:
