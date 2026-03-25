@@ -365,8 +365,9 @@ def build_lote_xml(
     valor_gnre = ET.SubElement(guia, f"{{{GNRE_NS}}}valorGNRE")
     valor_gnre.text = f"{vprincipal:.2f}"
     if data_pagamento:
+        dp_val = _adjust_vencimento_pr(data_pagamento, datetime.now().date()) if uf == "PR" else data_pagamento
         dp = ET.SubElement(guia, f"{{{GNRE_NS}}}dataPagamento")
-        dp.text = data_pagamento
+        dp.text = dp_val
     xml_str = ET.tostring(lote, encoding="utf-8", xml_declaration=False)
     return xml_str.decode("utf-8")
 
