@@ -2,7 +2,8 @@ from __future__ import annotations
 from typing import Optional, Dict, Any
 import xml.etree.ElementTree as ET
 from decimal import Decimal, InvalidOperation
-from datetime import datetime
+from datetime import datetime, date, timedelta
+import calendar
 import json
 from pathlib import Path
 from .gnre_ws import GNREError
@@ -73,6 +74,22 @@ def _load_detalhamento_map() -> Dict[str, Any]:
         except Exception:
             _UF_DETALHAMENTO = {}
     return _UF_DETALHAMENTO
+def _adjust_vencimento_pr(dtven: str, today: date) -> str:
+    """Para PR: se vencimento cair em mês diferente do atual, recua para
+    o último dia do mês atual, respeitando mínimo de 3 dias a partir de hoje."""
+    try:
+        ven = date.fromisoformat(dtven)
+    except ValueError:
+        return dtven
+    if ven.year == today.year and ven.month == today.month:
+        return dtven
+    last_day = calendar.monthrange(today.year, today.month)[1]
+    adjusted = today.replace(day=last_day)
+    min_date = today + timedelta(days=3)
+    if adjusted < min_date:
+        adjusted = min_date
+    return adjusted.isoformat()
+
 def evaluate_gnre_need(
     dados_nfe: Dict[str, Optional[str]],
     receita: Optional[str] = None,
@@ -160,8 +177,14 @@ def _build_item(
     incluir_valor_total: bool = True,
 ) -> None:
     chave = (dados_nfe.get("chave_nfe") or "").strip()
-    mes = dtven[5:7]
-    ano = dtven[0:4]
+    _today = datetime.now().date()
+    try:
+        _ven_date = date.fromisoformat(dtven)
+        _ref_date = _ven_date if (_ven_date.year, _ven_date.month) <= (_today.year, _today.month) else _today
+    except ValueError:
+        _ref_date = _today
+    mes = f"{_ref_date.month:02d}"
+    ano = str(_ref_date.year)
     item = ET.SubElement(itens_el, f"{{{GNRE_NS}}}item")
     rec = ET.SubElement(item, f"{{{GNRE_NS}}}receita")
     rec.text = receita
@@ -272,6 +295,8 @@ def build_lote_xml(
     # Aqui optamos por somar FCP ao valorGNRE apenas quando principal está zerado e há FCP
     _require(vprincipal >= Decimal("0.00"), "valor principal inválido", {"valor_principal": f"{vprincipal:.2f}", "receita": receita})
     dtven = data_vencimento or _date_only(dados_nfe.get("data_emissao")) or datetime.now().date().isoformat()
+    if uf == "PR":
+        dtven = _adjust_vencimento_pr(dtven, datetime.now().date())
     mes = dtven[5:7]
     ano = dtven[0:4]
 
