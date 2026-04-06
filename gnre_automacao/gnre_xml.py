@@ -457,7 +457,7 @@ def build_lote_xml_multiplas_receitas(
             doc_origem_tipo=guia_doc_tipo,
             detalhamento_receita=auto_det,
             valor_fcp=vfcp,
-            incluir_referencia=False,
+            incluir_referencia=(uf == "RO"),
             incluir_valor_total=False,
         )
         valor_total_gnre += vprincipal + (vfcp or Decimal("0"))
@@ -751,8 +751,10 @@ def emit_gnre_receipt(
             principal_guias[0] = {**principal_guias[0], "valor_fcp": fcp_guia["valor"]}
         guias_para_envio = principal_guias or guias
         use_multiplas = len(guias_para_envio) > 1
-        # No formato múltiplas receitas, documentoOrigem usa tipo="24"
-        guias_para_envio = [{**g, "doc_tipo": "24"} for g in guias_para_envio]
+        # RO usa tipo="10" (número da NF); demais estados tipo="24"
+        _doc_tipo_map = {"RO": "10"}
+        _dt = _doc_tipo_map.get(uf, "24")
+        guias_para_envio = [{**g, "doc_tipo": _dt} for g in guias_para_envio]
 
     item: Dict[str, Any] = {"receita": receita, "recibo": None, "multiplas_receitas": use_multiplas}
     try:
