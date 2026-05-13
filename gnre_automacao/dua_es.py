@@ -366,11 +366,12 @@ def _get_carea_for_cserv(
     ambiente: str,
     pfx_bytes: bytes,
     pfx_password: str,
+    timeout: int = 30,
 ) -> str:
     cache = _CSERV_CAREA_CACHE.get(ambiente)
     if not cache:
         try:
-            areas = consult_area_servico_dua_es(DUA_SEFAZ_CNPJ, ambiente, pfx_bytes, pfx_password)
+            areas = consult_area_servico_dua_es(DUA_SEFAZ_CNPJ, ambiente, pfx_bytes, pfx_password, timeout=timeout)
             mapping: Dict[str, str] = {}
             for area in areas:
                 for serv in area.get("servicos", []):
@@ -407,6 +408,7 @@ def _get_cmun_dua_es(
     pfx_bytes: bytes,
     pfx_password: str,
     nome_mun: Optional[str] = None,
+    timeout: int = 30,
 ) -> Optional[str]:
     """Resolve an IBGE municipality code (or name) to the DUA-e internal code.
 
@@ -418,7 +420,7 @@ def _get_cmun_dua_es(
     cache = _MUN_CACHE.get(ambiente)
     if not cache:
         try:
-            muns = consult_municipio_dua_es(ambiente, pfx_bytes, pfx_password)
+            muns = consult_municipio_dua_es(ambiente, pfx_bytes, pfx_password, timeout=timeout)
             mapping: Dict[str, str] = {}
             for m in muns:
                 cmun = m.get("cMun") or ""
@@ -549,7 +551,7 @@ def emit_dua_es(
                 details={"receita": receita, "valor": str(valor)},
             )
 
-        carea = _get_carea_for_cserv(cserv, ambiente, pfx_bytes, pfx_password)
+        carea = _get_carea_for_cserv(cserv, ambiente, pfx_bytes, pfx_password, timeout=timeout)
 
         # cnpjPes: CNPJ da empresa emitente (quem recolhe o imposto)
         cnpj_pes_raw = dados_nfe.get("emitente_cnpj")
@@ -557,7 +559,7 @@ def emit_dua_es(
         # cMun: resolve destinatário's municipality to DUA-e internal code (by name)
         dest_ibge = dados_nfe.get("destinatario_cod_mun") or ""
         dest_nome_mun = dados_nfe.get("destinatario_nome_mun")
-        cmun = _get_cmun_dua_es(dest_ibge, ambiente, pfx_bytes, pfx_password, nome_mun=dest_nome_mun)
+        cmun = _get_cmun_dua_es(dest_ibge, ambiente, pfx_bytes, pfx_password, nome_mun=dest_nome_mun, timeout=timeout)
 
         xml_payload = build_dua_es_emissao_xml(
             dados_nfe, cserv, carea, ambiente, data_vencimento, valor,

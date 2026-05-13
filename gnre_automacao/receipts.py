@@ -30,7 +30,7 @@ def generate_receipts(
     from .gnre_xml import emit_gnre_receipt
     return emit_gnre_receipt(
         dados_nfe, ambiente, receita, data_vencimento, data_pagamento,
-        pfx_bytes, pfx_password, certfile=certfile, keyfile=keyfile,
+        pfx_bytes, pfx_password, certfile=certfile, keyfile=keyfile, timeout=timeout,
     )
 
 
@@ -116,7 +116,7 @@ def consult_receipts(
                 "pdfBase64": None,
             }
             try:
-                raw = consult_gnre_receipt(ambiente, recibo, pfx_bytes, pfx_password, incluir_pdf=True, incluir_arquivo_pagamento=True)
+                raw = consult_gnre_receipt(ambiente, recibo, pfx_bytes, pfx_password, incluir_pdf=True, incluir_arquivo_pagamento=True, timeout=timeout)
                 entry["raw"] = raw
                 entry["status"] = raw.get("status")
                 entry["linhaDigitavel"] = raw.get("linhaDigitavel")

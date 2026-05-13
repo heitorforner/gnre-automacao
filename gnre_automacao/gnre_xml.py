@@ -734,6 +734,7 @@ def emit_gnre_receipt(
     pfx_password: str,
     certfile: Optional[str] = None,
     keyfile: Optional[str] = None,
+    timeout: int = 30,
 ) -> Dict[str, Any]:
     uf = (dados_nfe.get("uf_destinatario") or "").strip()
     _require(bool(uf), "ufFavorecida é obrigatória", {"uf_favorecida": uf})
@@ -781,7 +782,7 @@ def emit_gnre_receipt(
                 keyfile=keyfile,
             )
         env = build_soap_envelope_tlote(xml)
-        resp = post_soap(get_endpoints(ek)["recepcao_lote"], env, pfx_bytes=pfx_bytes, pfx_password=pfx_password, certfile=certfile, keyfile=keyfile)
+        resp = post_soap(get_endpoints(ek)["recepcao_lote"], env, pfx_bytes=pfx_bytes, pfx_password=pfx_password, certfile=certfile, keyfile=keyfile, timeout=timeout)
         recibo = parse_tr_ret_lote(resp)
         if not recibo:
             item["error"] = "Falha ao obter recibo de recepção"
@@ -802,12 +803,13 @@ def consult_gnre_receipt(
     incluir_arquivo_pagamento: bool = True,
     certfile: Optional[str] = None,
     keyfile: Optional[str] = None,
+    timeout: int = 30,
 ) -> Dict[str, Any]:
     ek = _endpoint_key(ambiente)
     xml = build_consulta_resultado_xml(ambiente, recibo, incluir_pdf=incluir_pdf, incluir_arquivo_pagamento=incluir_arquivo_pagamento)
     from .gnre_ws import build_soap_envelope, post_soap, get_endpoints, parse_result_status, extract_linha_digitavel_and_pdf, parse_tresult_lote
     env = build_soap_envelope("GnreResultadoLote", xml)
-    res = post_soap(get_endpoints(ek)["resultado_lote"], env, pfx_bytes=pfx_bytes, pfx_password=pfx_password, certfile=certfile, keyfile=keyfile)
+    res = post_soap(get_endpoints(ek)["resultado_lote"], env, pfx_bytes=pfx_bytes, pfx_password=pfx_password, certfile=certfile, keyfile=keyfile, timeout=timeout)
     out: Dict[str, Any] = {"recibo": recibo}
     try:
         status = parse_result_status(res)
